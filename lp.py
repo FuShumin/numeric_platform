@@ -77,33 +77,22 @@ class Dock:
         self.loading_efficiency = loading_efficiency
 
 
-def parse_optimization_result(result, num_orders, num_warehouses, num_docks):
-    # 提取线性规划结果中的月台分配决策
-    x = result.x.reshape(num_orders, num_warehouses, num_docks)
+def parse_optimization_result(result, orders, warehouses):
+    order_warehouse_dock = {}
+    timestamps = {}
 
-    order_dock_assignments = []
-    for i in range(num_orders):
-        for j in range(num_warehouses):
-            for k in range(num_docks):
-                if x[i, j, k] == 1:
-                    order_dock_assignments.append((i, j, k))
+    for o in range(len(orders)):
+        order_warehouse_dock[o] = []
+        timestamps[o] = 0
 
-    return order_dock_assignments
+        for w in range(len(warehouses)):
+            for d in range(len(warehouses[w].docks)):
+                var_key = f"OrderWarehouseDock_{o}_{w}_{d}"
+                if pulp.value(result.variablesDict()[var_key]) == 1:
+                    order_warehouse_dock[o].append((w, d))
+                    timestamps[o] += orders[o].warehouse_loads[w] / warehouses[w].docks[d].loading_efficiency
 
-
-def calculate_timestamps(order_dock_assignments, orders, warehouses):
-    timestamps = []
-    for assignment in order_dock_assignments:
-        order_id, warehouse_id, dock_id = assignment
-        order = orders[order_id]
-        warehouse = warehouses[warehouse_id]
-        dock = warehouse.docks[dock_id]
-
-        # 计算装货时间：装货量 / 装货效率
-        load_time = order.warehouse_loads[warehouse.warehouse_id] / dock.loading_efficiency
-        timestamps.append((order_id, warehouse_id, dock_id, load_time))
-
-    return timestamps
+    return order_warehouse_dock, timestamps
 
 
 orders = [
@@ -121,8 +110,5 @@ warehouses = [
 ]
 
 result = create_lp_model(orders, warehouses)
-order_dock_assignments = parse_optimization_result(result, len(orders), len(warehouses), 4)
-timestamps = calculate_timestamps(order_dock_assignments, orders, warehouses)
+order_warehouse_dock, timestamps = parse_optimization_result(result, orders, warehouses)
 
-for timestamp in timestamps:
-    print(timestamp)
