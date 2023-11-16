@@ -9,9 +9,10 @@ from visualization import *
 
 
 class Order:
-    def __init__(self, order_id, warehouse_loads):
+    def __init__(self, order_id, warehouse_loads, priority):
         self.id = order_id
         self.warehouse_loads = warehouse_loads
+        self.priority = priority
 
     def __str__(self):
         return f"Order(ID: {self.id}, Load: {self.warehouse_loads})"
@@ -123,7 +124,9 @@ def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
                            for i in range(num_docks_per_warehouse)]
 
     # 生成订单
-    orders = [Order(order_id=i, warehouse_loads=[random.randint(10, 50) for _ in range(num_warehouses)])
+    orders = [Order(order_id=i,
+                    warehouse_loads=[random.randint(10, 50) for _ in range(num_warehouses)],
+                    priority=random.randint(1, 10))  # 假设优先级范围为 1 到 10
               for i in range(num_orders)]
 
     return orders, warehouses
