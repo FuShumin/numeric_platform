@@ -83,9 +83,52 @@ def create_lp_model(orders, warehouses):
     #  有的仓库可能load为0
     #  检查逻辑
     #  解析函数
-    # TODO 仓库顺序
-    # TODO 运单优先级约束
+    # TODO 月台排队顺序 - 2阶段
+    # TODO 仓库顺序 - 2阶段后
+    # TODO 运单优先级约束 - 2阶段
     # TODO 生成方案之前，已经有月台正在排队的情况。
+
+
+def create_queue_model(orders, warehouses, order_dock_assignments):
+    model = LpProblem("Queue_Optimization", LpMinimize)
+
+    # 变量定义
+    queue_positions = LpVariable.dicts("Queue_Position",
+                                       [(order.id, warehouse.id, dock.id) for order in orders for warehouse in
+                                        warehouses for dock in warehouse.docks],
+                                       lowBound=0, cat=LpInteger)
+
+    # 目标函数：暂定为最小化总排队位置
+    model += lpSum(
+        queue_positions[order.id, warehouse.id, dock.id] for order in orders for warehouse in warehouses for dock in
+        warehouse.docks)
+
+    # 排队位置约束
+    for warehouse in warehouses:
+        for dock in warehouse.docks:
+            # 根据优先级排序
+            orders_in_dock = [order for order in orders if order_dock_assignments[order.id][warehouse.id] == dock.id]
+            orders_in_dock.sort(key=lambda order: order.priority, reverse=True)
+
+            for i in range(len(orders_in_dock)):
+                for j in range(i + 1, len(orders_in_dock)):
+                    # 确保具有更高优先级的订单排在前面
+                    model += queue_positions[orders_in_dock[i].id, warehouse.id, dock.id] < queue_positions[
+                        orders_in_dock[j].id, warehouse.id, dock.id]
+
+    # 求解模型
+    model.solve()
+
+    # 解析结果
+    queue_order = {}
+    for warehouse in warehouses:
+        queue_order[warehouse.id] = {}
+        for dock in warehouse.docks:
+            queue_order[warehouse.id][dock.id] = sorted(
+                [(order.id, value(queue_positions[order.id, warehouse.id, dock.id])) for order in orders],
+                key=lambda x: x[1])
+
+    return queue_order
 
 
 def parse_optimization_result(model, orders, warehouses):
