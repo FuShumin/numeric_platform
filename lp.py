@@ -1,9 +1,8 @@
-# /path/to/optimization_model.py
 import random
 
 import pandas as pd
 import numpy as np
-from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpStatus, LpInteger, value
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpContinuous, LpInteger, value
 import pulp
 from visualization import *
 
@@ -77,7 +76,7 @@ def create_lp_model(orders, warehouses):
                 for o2 in orders:
                     if o1.id != o2.id and owd[o1.id, warehouse.id, dock.id] == owd[o2.id, warehouse.id, dock.id]:
                         model += (queue_position[o1.id, warehouse.id, dock.id] != queue_position[
-                                     o2.id, warehouse.id, dock.id])
+                            o2.id, warehouse.id, dock.id])
 
     return model
     #  有的仓库可能load为0
@@ -89,46 +88,62 @@ def create_lp_model(orders, warehouses):
     # TODO 生成方案之前，已经有月台正在排队的情况。
 
 
-def create_queue_model(orders, warehouses, order_dock_assignments):
+def create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route):
     model = LpProblem("Queue_Optimization", LpMinimize)
 
-    # 变量定义
-    queue_positions = LpVariable.dicts("Queue_Position",
-                                       [(order.id, warehouse.id, dock.id) for order in orders for warehouse in
-                                        warehouses for dock in warehouse.docks],
-                                       lowBound=0, cat=LpInteger)
+    # 定义开始时间和结束时间变量
+    start_times = LpVariable.dicts("Start_Time",
+                                   [(order.id, warehouse.id, dock.id) for order in orders for warehouse in warehouses
+                                    for dock in warehouse.docks],
+                                   lowBound=0, cat=LpContinuous)
 
-    # 目标函数：暂定为最小化总排队位置
-    model += lpSum(
-        queue_positions[order.id, warehouse.id, dock.id] for order in orders for warehouse in warehouses for dock in
-        warehouse.docks)
+    end_times = LpVariable.dicts("End_Time",
+                                 [(order.id, warehouse.id, dock.id) for order in orders for warehouse in warehouses for
+                                  dock in warehouse.docks],
+                                 lowBound=0, cat=LpContinuous)
 
-    # 排队位置约束
+    # 目标函数：最小化最迟订单的结束时间
+    latest_end_time = LpVariable("Latest_End_Time", lowBound=0, cat=LpContinuous)
+    model += latest_end_time
+
+    # 约束条件
     for warehouse in warehouses:
         for dock in warehouse.docks:
-            # 根据优先级排序
             orders_in_dock = [order for order in orders if order_dock_assignments[order.id][warehouse.id] == dock.id]
             orders_in_dock.sort(key=lambda order: order.priority, reverse=True)
 
             for i in range(len(orders_in_dock)):
+                order = orders_in_dock[i]
+                processing_time = order.warehouse_loads[warehouse.id] / dock.efficiency
+                model += end_times[order.id, warehouse.id, dock.id] == start_times[
+                    order.id, warehouse.id, dock.id] + processing_time
+                model += end_times[order.id, warehouse.id, dock.id] <= latest_end_time
+
+                # 优先级约束：优先级高的订单先完成
+                if i < len(orders_in_dock) - 1:
+                    next_order = orders_in_dock[i + 1]
+                    model += end_times[order.id, warehouse.id, dock.id] <= start_times[
+                        next_order.id, warehouse.id, dock.id]
+
+            # 同一时间同一月台仅一个订单
+            for i in range(len(orders_in_dock)):
                 for j in range(i + 1, len(orders_in_dock)):
-                    # 确保具有更高优先级的订单排在前面
-                    model += queue_positions[orders_in_dock[i].id, warehouse.id, dock.id] < queue_positions[
+                    model += end_times[orders_in_dock[i].id, warehouse.id, dock.id] <= start_times[
                         orders_in_dock[j].id, warehouse.id, dock.id]
+
+    # 特定顺序订单的时间约束
+    for order_id in specific_order_route:
+        expected_route = specific_order_route[order_id]
+        for i in range(1, len(expected_route)):
+            prev_warehouse = expected_route[i - 1]
+            curr_warehouse = expected_route[i]
+            for dock in warehouses[prev_warehouse].docks:
+                model += end_times[order_id, prev_warehouse, dock.id] <= start_times[order_id, curr_warehouse, dock.id]
 
     # 求解模型
     model.solve()
 
-    # 解析结果
-    queue_order = {}
-    for warehouse in warehouses:
-        queue_order[warehouse.id] = {}
-        for dock in warehouse.docks:
-            queue_order[warehouse.id][dock.id] = sorted(
-                [(order.id, value(queue_positions[order.id, warehouse.id, dock.id])) for order in orders],
-                key=lambda x: x[1])
-
-    return queue_order
+    return value(latest_end_time)
 
 
 def parse_optimization_result(model, orders, warehouses):
