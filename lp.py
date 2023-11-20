@@ -98,9 +98,10 @@ def generate_specific_order_route(orders, warehouses):
             specific_order_route[order.id] = route
 
     return specific_order_route
-    # TODO 载货量为0的仓库去除
+    # TODO 载货量为0的仓库去除 【测试】
+    # TODO 仓库是否按序 【测试】
     # 月台排队顺序 - 2阶段
-    # TODO 仓库顺序 - 2阶段后
+    # TODO 提取仓库顺序，月台排队顺序 - 2阶段后
     # 运单优先级约束 - 2阶段
     # TODO 生成方案之前，已经有月台正在排队的情况。增量设计
 
@@ -154,13 +155,33 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
         for i in range(1, len(expected_route)):
             prev_warehouse = expected_route[i - 1]
             curr_warehouse = expected_route[i]
-            for dock in warehouses[prev_warehouse].docks:  # TODO dock 已经确定了，直接使用确定的dock即可
-                model += end_times[order_id, prev_warehouse, dock.id] <= start_times[order_id, curr_warehouse, dock.id]
+            assigned_dock = order_dock_assignments[order_id][prev_warehouse]
+            model += end_times[order_id, prev_warehouse, assigned_dock] <= start_times[
+                order_id, curr_warehouse, order_dock_assignments[order_id][curr_warehouse]]
 
-    # 求解模型
-    model.solve()
+    return model
 
-    return value(latest_end_time)
+
+def parse_queue_results(model, orders, warehouses):
+    # Retrieve decision variables
+    start_times_values = {}
+    end_times_values = {}
+    vars_dict = model.variablesDict()
+
+    for order in orders:
+        for warehouse in warehouses:
+            for dock in warehouse.docks:
+                # Variable names as defined in the model
+                start_var_name = f"Start_Time_({order.id},_{warehouse.id},_{dock.id})"
+                end_var_name = f"End_Time_({order.id},_{warehouse.id},_{dock.id})"
+
+                # Retrieve and store the values of the variables
+                if start_var_name in vars_dict:
+                    start_times_values[(order.id, warehouse.id, dock.id)] = vars_dict[start_var_name].varValue
+                if end_var_name in vars_dict:
+                    end_times_values[(order.id, warehouse.id, dock.id)] = vars_dict[end_var_name].varValue
+
+    return start_times_values, end_times_values
 
 
 def parse_optimization_result(model, orders, warehouses):
@@ -229,6 +250,12 @@ def main():
     print("Order Queue Positions:", order_queue_positions)
     print("Latest Completion Time:", latest_completion_time)
     visualize_queue_by_docks_colored(order_dock_assignments, order_queue_positions, warehouses, num_orders=10)
+    queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route)
+    queue_model.solve()
+    start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
+    # 显示排队结果
+    print("Start Times:", start_times)
+    print("End Times:", end_times)
 
 
 if __name__ == "__main__":
