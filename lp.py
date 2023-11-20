@@ -98,10 +98,11 @@ def generate_specific_order_route(orders, warehouses):
             specific_order_route[order.id] = route
 
     return specific_order_route
-    # TODO 月台排队顺序 - 2阶段
+    # TODO 载货量为0的仓库去除
+    # 月台排队顺序 - 2阶段
     # TODO 仓库顺序 - 2阶段后
-    # TODO 运单优先级约束 - 2阶段
-    # TODO 生成方案之前，已经有月台正在排队的情况。
+    # 运单优先级约束 - 2阶段
+    # TODO 生成方案之前，已经有月台正在排队的情况。增量设计
 
 
 def create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route):
@@ -153,7 +154,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
         for i in range(1, len(expected_route)):
             prev_warehouse = expected_route[i - 1]
             curr_warehouse = expected_route[i]
-            for dock in warehouses[prev_warehouse].docks:
+            for dock in warehouses[prev_warehouse].docks:  # TODO dock 已经确定了，直接使用确定的dock即可
                 model += end_times[order_id, prev_warehouse, dock.id] <= start_times[order_id, curr_warehouse, dock.id]
 
     # 求解模型
