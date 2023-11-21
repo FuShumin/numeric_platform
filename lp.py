@@ -45,7 +45,7 @@ def create_lp_model(orders, warehouses):
                            [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
                            cat='Binary')
 
-    # 排队位置变量
+    # 排队位置变量  # TODO 该变量可删除，需要修改对应的parse函数
     queue_position = LpVariable.dicts("Queue_Position",
                                       [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
                                       lowBound=0, cat=LpInteger)
@@ -159,6 +159,17 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
             model += end_times[order_id, prev_warehouse, assigned_dock] <= start_times[
                 order_id, curr_warehouse, order_dock_assignments[order_id][curr_warehouse]]
 
+    # TODO 对于每个订单，添加一个累加和约束，以确保在任何给定时间只在一个月台上作业
+    for order in orders:
+        assigned_docks = [(w_id, d_id) for w_id, d_id in order_dock_assignments[order.id].items()]
+        for i in range(len(assigned_docks)):
+            for j in range(i + 1, len(assigned_docks)):
+                w_id1, d_id1 = assigned_docks[i]
+                w_id2, d_id2 = assigned_docks[j]
+                # 确保订单在一个月台结束后才能在另一个月台开始
+                model += end_times[order.id, w_id1, d_id1] <= start_times[order.id, w_id2, d_id2]
+                model += end_times[order.id, w_id2, d_id2] <= start_times[order.id, w_id1, d_id1]
+
     return model
 
 
@@ -222,7 +233,7 @@ def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
     # 生成订单
     orders = [Order(order_id=i,
                     warehouse_loads=[random.randint(10, 50) for _ in range(num_warehouses)],
-                    priority=random.randint(1, 5),
+                    priority=random.randint(1, 1),
                     sequential=random.choice([True, False]))  # 假设优先级范围为 1 到 10
               for i in range(num_orders)]
 
@@ -249,13 +260,14 @@ def main():
     print("Order Dock Assignments:", order_dock_assignments)
     print("Order Queue Positions:", order_queue_positions)
     print("Latest Completion Time:", latest_completion_time)
-    visualize_queue_by_docks_colored(order_dock_assignments, order_queue_positions, warehouses, num_orders=10)
+    # visualize_queue_by_docks_colored(order_dock_assignments, order_queue_positions, warehouses, num_orders=10)
     queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route)
     queue_model.solve()
     start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
     # 显示排队结果
     print("Start Times:", start_times)
     print("End Times:", end_times)
+    plot_order_times_on_docks(start_times, end_times)
 
 
 if __name__ == "__main__":
