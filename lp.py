@@ -45,11 +45,6 @@ def create_lp_model(orders, warehouses):
                            [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
                            cat='Binary')
 
-    # 排队位置变量  # TODO 该变量可删除，需要修改对应的parse函数
-    queue_position = LpVariable.dicts("Queue_Position",
-                                      [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
-                                      lowBound=0, cat=LpInteger)
-
     # 最迟完成时间变量
     latest_completion_time = LpVariable("Latest_Completion_Time", lowBound=0, cat=LpInteger)
 
@@ -70,15 +65,6 @@ def create_lp_model(orders, warehouses):
         for warehouse in warehouses:
             if order.warehouse_loads[warehouse.id] > 0:
                 model += pulp.lpSum(owd[order.id, warehouse.id, dock.id] for dock in warehouse.docks) == 1
-
-    # 排队顺序约束： 不会出现多个相同的q_od在同一月台位置
-    for warehouse in warehouses:
-        for dock in warehouse.docks:
-            for o1 in orders:
-                for o2 in orders:
-                    if o1.id != o2.id and owd[o1.id, warehouse.id, dock.id] == owd[o2.id, warehouse.id, dock.id]:
-                        model += (queue_position[o1.id, warehouse.id, dock.id] != queue_position[
-                            o2.id, warehouse.id, dock.id])
 
     return model
     #  有的仓库可能load为0
@@ -149,7 +135,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                     model += end_times[orders_in_dock[i].id, warehouse.id, dock.id] <= start_times[
                         orders_in_dock[j].id, warehouse.id, dock.id]
 
-    # 特定顺序订单的时间约束
+    # 按序订单的时间约束
     for order_id in specific_order_route:
         expected_route = specific_order_route[order_id]
         for i in range(1, len(expected_route)):
@@ -159,7 +145,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
             model += end_times[order_id, prev_warehouse, assigned_dock] <= start_times[
                 order_id, curr_warehouse, order_dock_assignments[order_id][curr_warehouse]]
 
-    # TODO 对于每个订单，添加一个累加和约束，以确保在任何给定时间只在一个月台上作业
+    # 对于每个订单，确保在任何给定时间只在一个月台上作业，但是非按序订单还没有优化排序
     for order in orders:
         assigned_docks = [(w_id, d_id) for w_id, d_id in order_dock_assignments[order.id].items()]
         for i in range(len(assigned_docks)):
@@ -168,7 +154,6 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                 w_id2, d_id2 = assigned_docks[j]
                 # 确保订单在一个月台结束后才能在另一个月台开始
                 model += end_times[order.id, w_id1, d_id1] <= start_times[order.id, w_id2, d_id2]
-                model += end_times[order.id, w_id2, d_id2] <= start_times[order.id, w_id1, d_id1]
 
     return model
 
@@ -201,24 +186,19 @@ def parse_optimization_result(model, orders, warehouses):
 
     # 解析月台分配
     order_dock_assignments = {}
-    order_queue_positions = {}
     for order in orders:
         for warehouse in warehouses:
             for dock in warehouse.docks:
                 owd_var = f"OrderWarehouseDock_({order.id},_{warehouse.id},_{dock.id})"
-                queue_pos_var = f"Queue_Position_({order.id},_{warehouse.id},_{dock.id})"
                 if owd_var in vars_dict and pulp.value(vars_dict[owd_var]) == 1:
                     if order.id not in order_dock_assignments:
                         order_dock_assignments[order.id] = {}
                     order_dock_assignments[order.id][warehouse.id] = dock.id
-                    # 仅当订单被分配到该月台时，获取其排队位置
-                    order_queue_positions.setdefault(order.id, {})[warehouse.id] = pulp.value(
-                        vars_dict.get(queue_pos_var, 0))
 
     # 解析最迟完成时间
     latest_completion_time = pulp.value(vars_dict["Latest_Completion_Time"])
 
-    return order_dock_assignments, order_queue_positions, latest_completion_time
+    return order_dock_assignments, latest_completion_time
 
 
 def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
@@ -255,12 +235,9 @@ def main():
     model = create_lp_model(orders, warehouses)
     model.solve()
 
-    order_dock_assignments, order_queue_positions, latest_completion_time = parse_optimization_result(model, orders,
-                                                                                                      warehouses)
+    order_dock_assignments, latest_completion_time = parse_optimization_result(model, orders, warehouses)
     print("Order Dock Assignments:", order_dock_assignments)
-    print("Order Queue Positions:", order_queue_positions)
     print("Latest Completion Time:", latest_completion_time)
-    # visualize_queue_by_docks_colored(order_dock_assignments, order_queue_positions, warehouses, num_orders=10)
     queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route)
     queue_model.solve()
     start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
