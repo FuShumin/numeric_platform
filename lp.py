@@ -146,14 +146,27 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                 order_id, curr_warehouse, order_dock_assignments[order_id][curr_warehouse]]
 
     # 对于每个订单，确保在任何给定时间只在一个月台上作业，但是非按序订单还没有优化排序 改这个
+    M = 100000
     for order in orders:
         assigned_docks = [(w_id, d_id) for w_id, d_id in order_dock_assignments[order.id].items()]
+
         for i in range(len(assigned_docks)):
+            w_id1, d_id1 = assigned_docks[i]
             for j in range(i + 1, len(assigned_docks)):
-                w_id1, d_id1 = assigned_docks[i]
                 w_id2, d_id2 = assigned_docks[j]
-                # 确保订单在一个月台结束后才能在另一个月台开始
-                model += end_times[order.id, w_id1, d_id1] <= start_times[order.id, w_id2, d_id2]
+
+                # 引入辅助二元变量，表示订单在两个月台中的先后顺序
+                before = LpVariable(f"Order_{order.id}_Dock_{w_id1}_{d_id1}_Before_Dock_{w_id2}_{d_id2}", 0, 1,
+                                    LpInteger)
+
+                '''
+                添加约束，确保两个月台作业的时间不重叠， 
+                大M方法：几乎总是成立的约束将变得不具有约束性。
+                如果before=1，则下面的约束不具有约束性，第一个作业在第二个作业之前完成
+                如果before=0，则上面的约束不具有约束性，同时保证第二个作业在第一个作业之前完成
+                '''
+                model += end_times[order.id, w_id1, d_id1] <= start_times[order.id, w_id2, d_id2] + (1 - before) * M
+                model += end_times[order.id, w_id2, d_id2] <= start_times[order.id, w_id1, d_id1] + before * M
 
     return model
 
@@ -220,6 +233,34 @@ def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
     return orders, warehouses
 
 
+def parse_order_sequence_and_queue(start_times, end_times):
+    # 初始化存储结构
+    order_sequences = {}
+    dock_queues = {}
+
+    # 解析每个订单的仓库顺序
+    for (order_id, warehouse_id, dock_id), start_time in start_times.items():
+        if order_id not in order_sequences:
+            order_sequences[order_id] = []
+        order_sequences[order_id].append((warehouse_id, start_time, end_times[(order_id, warehouse_id, dock_id)]))
+
+    # 对每个订单的仓库访问顺序按开始时间进行排序
+    for order_id in order_sequences:
+        order_sequences[order_id].sort(key=lambda x: x[1])
+
+    # 解析每个月台的排队顺序
+    for (order_id, warehouse_id, dock_id), start_time in start_times.items():
+        if dock_id not in dock_queues:
+            dock_queues[dock_id] = []
+        dock_queues[dock_id].append((order_id, start_time, end_times[(order_id, warehouse_id, dock_id)]))
+
+    # 对每个月台的排队顺序按开始时间进行排序
+    for dock_id in dock_queues:
+        dock_queues[dock_id].sort(key=lambda x: x[1])
+
+    return order_sequences, dock_queues
+
+
 def main():
     orders, warehouses = generate_test_data(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
     specific_order_route = generate_specific_order_route(orders, warehouses)
@@ -240,11 +281,26 @@ def main():
     print("Latest Completion Time:", latest_completion_time)
     queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route)
     queue_model.solve()
+    vars_dict = queue_model.variablesDict()
     start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
     # 显示排队结果
     print("Start Times:", start_times)
     print("End Times:", end_times)
     plot_order_times_on_docks(start_times, end_times)
+
+    # order_sequences, dock_queues = parse_order_sequence_and_queue(start_times, end_times)
+    #
+    # # 打印每个订单的仓库顺序
+    # for order_id in order_sequences:
+    #     print(f"Order {order_id}:")
+    #     for warehouse_id, start, end in order_sequences[order_id]:
+    #         print(f"  Warehouse {warehouse_id}: Start at {start}, End at {end}")
+    #
+    # # 打印每个月台上的排队顺序
+    # for dock_id in dock_queues:
+    #     print(f"Dock {dock_id}:")
+    #     for order_id, start, end in dock_queues[dock_id]:
+    #         print(f"  Order {order_id}: Start at {start}, End at {end}")
 
 
 if __name__ == "__main__":
