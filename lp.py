@@ -15,7 +15,7 @@ class Order:
         self.sequential = sequential
 
     def __str__(self):
-        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority})"
+        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority}, Sequential:{self.sequential})"
 
 
 class Dock:
@@ -45,7 +45,7 @@ def create_lp_model(orders, warehouses):
                            [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
                            cat='Binary')
 
-    # 最迟完成时间变量
+    # 最迟完成时间变量（不考虑顺序的压缩时间量）
     latest_completion_time = LpVariable("Latest_Completion_Time", lowBound=0, cat=LpInteger)
 
     # 目标函数：最小化最迟的订单完成时间
@@ -110,6 +110,45 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
     latest_end_time = LpVariable("Latest_End_Time", lowBound=0, cat=LpContinuous)
     model += latest_end_time
 
+    # 添加决策变量：每个非按序订单在每个仓库的访问顺序
+    visit_order = LpVariable.dicts("Visit_Order",
+                                   [(order.id, w.id) for order in orders if order.id not in specific_order_route for w
+                                    in warehouses],
+                                   lowBound=0, cat=LpInteger)
+
+    # 仓库路线约束
+    for order in orders:
+        if order.id not in specific_order_route:
+            # 获取订单里的仓库个数
+            assigned_warehouses = list(order_dock_assignments[order.id].keys())
+            num_warehouses = len(assigned_warehouses)
+
+            # 确保访问顺序是连续的且不重复
+            model += lpSum(visit_order[(order.id, w.id)] for w in warehouses if w.id in assigned_warehouses) == sum(
+                range(num_warehouses))
+            for pos in range(num_warehouses):
+                model += lpSum(
+                    visit_order[(order.id, w.id)] == pos for w in warehouses if w.id in assigned_warehouses) == 1
+
+            # 添加约束以确保访问顺序与时间安排一致
+            for i in range(num_warehouses):
+                for j in range(i + 1, num_warehouses):
+                    w_id1 = assigned_warehouses[i]
+                    w_id2 = assigned_warehouses[j]
+                    dock_id1 = order_dock_assignments[order.id][w_id1]
+                    dock_id2 = order_dock_assignments[order.id][w_id2]
+                    model += start_times[order.id, w_id2, dock_id2] >= end_times[order.id, w_id1, dock_id1] + (
+                            visit_order[(order.id, w_id2)] - visit_order[(order.id, w_id1)] - 1) * 5
+        else:
+            # 按序订单的仓库路线约束
+            expected_route = specific_order_route[order.id]
+            for i in range(1, len(expected_route)):
+                prev_warehouse = expected_route[i - 1]
+                curr_warehouse = expected_route[i]
+                assigned_dock = order_dock_assignments[order.id][prev_warehouse]
+                model += end_times[order.id, prev_warehouse, assigned_dock] <= start_times[
+                    order.id, curr_warehouse, order_dock_assignments[order.id][curr_warehouse]]
+
     # 约束条件 首先排序订单优先级。
     for warehouse in warehouses:
         for dock in warehouse.docks:
@@ -135,49 +174,40 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                     model += end_times[orders_in_dock[i].id, warehouse.id, dock.id] <= start_times[
                         orders_in_dock[j].id, warehouse.id, dock.id]
 
-    # 按序订单的时间约束
-    for order_id in specific_order_route:
-        expected_route = specific_order_route[order_id]
-        for i in range(1, len(expected_route)):
-            prev_warehouse = expected_route[i - 1]
-            curr_warehouse = expected_route[i]
-            assigned_dock = order_dock_assignments[order_id][prev_warehouse]
-            model += end_times[order_id, prev_warehouse, assigned_dock] <= start_times[
-                order_id, curr_warehouse, order_dock_assignments[order_id][curr_warehouse]]
-
-    # 对于每个订单，确保在任何给定时间只在一个月台上作业，但是非按序订单还没有优化排序
-    for order in orders:
-        assigned_docks = [(w_id, d_id) for w_id, d_id in order_dock_assignments[order.id].items()]
-        for i in range(len(assigned_docks)):
-            for j in range(i + 1, len(assigned_docks)):
-                w_id1, d_id1 = assigned_docks[i]
-                w_id2, d_id2 = assigned_docks[j]
-                # 确保订单在一个月台结束后才能在另一个月台开始
-                model += end_times[order.id, w_id1, d_id1] <= start_times[order.id, w_id2, d_id2]
-
     return model
 
 
-def parse_queue_results(model, orders, warehouses):
-    # Retrieve decision variables
+def parse_queue_results(model, orders, warehouses, order_dock_assignments, specific_order_route):
     start_times_values = {}
     end_times_values = {}
+    order_routes = {}
     vars_dict = model.variablesDict()
 
+    # 解析开始和结束时间
     for order in orders:
         for warehouse in warehouses:
             for dock in warehouse.docks:
-                # Variable names as defined in the model
                 start_var_name = f"Start_Time_({order.id},_{warehouse.id},_{dock.id})"
                 end_var_name = f"End_Time_({order.id},_{warehouse.id},_{dock.id})"
 
-                # Retrieve and store the values of the variables
                 if start_var_name in vars_dict:
                     start_times_values[(order.id, warehouse.id, dock.id)] = vars_dict[start_var_name].varValue
                 if end_var_name in vars_dict:
                     end_times_values[(order.id, warehouse.id, dock.id)] = vars_dict[end_var_name].varValue
 
-    return start_times_values, end_times_values
+    # 解析仓库路线
+    for order in orders:
+        if order.id in specific_order_route:
+            # 按序订单使用特定的路线
+            order_routes[order.id] = specific_order_route[order.id]
+        else:
+            # 非按序订单根据 visit_order 变量确定路线
+            visit_order_values = {w_id: vars_dict[f"Visit_Order_({order.id},_{w_id})"].varValue for w_id in
+                                  order_dock_assignments[order.id]}
+            sorted_warehouses = sorted(visit_order_values, key=visit_order_values.get)
+            order_routes[order.id] = sorted_warehouses
+
+    return start_times_values, end_times_values, order_routes
 
 
 def parse_optimization_result(model, orders, warehouses):
@@ -214,7 +244,7 @@ def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
     orders = [Order(order_id=i,
                     warehouse_loads=[random.randint(10, 50) for _ in range(num_warehouses)],
                     priority=random.randint(1, 1),
-                    sequential=random.choice([True, False]))  # 假设优先级范围为 1 到 10
+                    sequential=random.choice([True, False]))
               for i in range(num_orders)]
 
     return orders, warehouses
@@ -240,10 +270,12 @@ def main():
     print("Latest Completion Time:", latest_completion_time)
     queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route)
     queue_model.solve()
-    start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
+    start_times, end_times, order_routes = parse_queue_results(queue_model, orders, warehouses, order_dock_assignments,
+                                                               specific_order_route)
     # 显示排队结果
     print("Start Times:", start_times)
     print("End Times:", end_times)
+    print("order_routes", order_routes)
     plot_order_times_on_docks(start_times, end_times)
 
 
