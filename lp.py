@@ -165,6 +165,15 @@ def main():
     plot_order_times_on_docks(start_times, end_times)
     schedule = generate_schedule(start_times, end_times)
     print(schedule)
+    # 保存时间表到文件
+    filename = "test_schedule.csv"
+    save_schedule_to_file(schedule, filename)
+    # 从文件加载时间表
+    loaded_schedule = load_schedule_from_file(filename)
+    # 验证
+    print("Original Schedule:\n", schedule)
+    print("\nLoaded Schedule:\n", loaded_schedule)
+    assert schedule.equals(loaded_schedule), "Loaded schedule does not match the original."
     order_sequences, dock_queues = parse_order_sequence_and_queue(start_times, end_times)
 
     # # 打印每个订单的仓库顺序

@@ -181,3 +181,43 @@ def load_schedule_from_file(filename):
         return pd.read_json(filename, orient='records', lines=True)
     else:
         raise ValueError("Unsupported file format. Please use .csv or .json")
+
+
+def analyze_existing_schedule(start_times, end_times, warehouses):
+    """
+    Analyzes the existing schedule to find free time slots on each dock.
+
+    :param start_times: Dictionary of start times.
+    :param end_times: Dictionary of end times.
+    :param warehouses: List of Warehouse objects.
+    :return: Dictionary with free time slots for each dock.
+    """
+    free_slots = {}
+    for warehouse in warehouses:
+        for dock in warehouse.docks:
+            dock_key = (warehouse.id, dock.id)
+            busy_slots = [(start_times[(order_id, warehouse.id, dock.id)],
+                           end_times[(order_id, warehouse.id, dock.id)])
+                          for order_id in start_times if (order_id, warehouse.id, dock.id) in start_times]
+            busy_slots.sort()  # Sort by start time
+            free_slots[dock_key] = find_free_slots(busy_slots)
+    return free_slots
+
+
+def find_free_slots(busy_slots):
+    """
+    Finds free time slots based on busy slots.
+
+    :param busy_slots: List of tuples representing busy time slots.
+    :return: List of tuples representing free time slots.
+    """
+    free_slots = []
+    end_of_last_busy_slot = 0
+    for start, end in busy_slots:
+        if start > end_of_last_busy_slot:
+            free_slots.append((end_of_last_busy_slot, start))
+        end_of_last_busy_slot = end
+    # Assuming the dock operates in a fixed time range, e.g., 0-24 hours
+    if end_of_last_busy_slot < 24:
+        free_slots.append((end_of_last_busy_slot, 24))
+    return free_slots
