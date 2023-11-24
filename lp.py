@@ -1,40 +1,6 @@
-import random
-
-import pandas as pd
-import numpy as np
 from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpContinuous, LpInteger, value
-import pulp
 from visualization import *
-
-
-class Order:
-    def __init__(self, order_id, warehouse_loads, priority, sequential):
-        self.id = order_id
-        self.warehouse_loads = warehouse_loads
-        self.priority = priority
-        self.sequential = sequential
-
-    def __str__(self):
-        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority})"
-
-
-class Dock:
-    def __init__(self, dock_id, efficiency, weight):
-        self.id = dock_id
-        self.efficiency = efficiency
-        self.weight = weight
-
-    def __str__(self):
-        return f"Dock(ID: {self.id}, Efficiency: {self.efficiency}, Weight:{self.weight})"
-
-
-class Warehouse:
-    def __init__(self, warehouse_id, docks):
-        self.id = warehouse_id
-        self.docks = docks
-
-    def __str__(self):
-        return f"Warehouse(ID: {self.id}, Docks: {[str(dock) for dock in self.docks]})"
+from common import *
 
 
 def create_lp_model(orders, warehouses):
@@ -94,7 +60,7 @@ def generate_specific_order_route(orders, warehouses):
 
 def create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route):
     model = LpProblem("Queue_Optimization", LpMinimize)
-
+    fixed_cost = 6  # 驶入驶离固定耗时4+2分钟
     # 定义开始时间和结束时间变量
     start_times = LpVariable.dicts("Start_Time",
                                    [(order.id, warehouse.id, dock.id) for order in orders for warehouse in warehouses
@@ -118,7 +84,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
 
             for i in range(len(orders_in_dock)):
                 order = orders_in_dock[i]
-                processing_time = order.warehouse_loads[warehouse.id] / dock.efficiency  # TODO 加权
+                processing_time = fixed_cost + order.warehouse_loads[warehouse.id] / dock.efficiency  # TODO 加权
                 model += end_times[order.id, warehouse.id, dock.id] == start_times[
                     order.id, warehouse.id, dock.id] + processing_time
                 model += end_times[order.id, warehouse.id, dock.id] <= latest_end_time  # 最迟完成时间
@@ -171,96 +137,6 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
     return model
 
 
-def parse_queue_results(model, orders, warehouses):
-    # Retrieve decision variables
-    start_times_values = {}
-    end_times_values = {}
-    vars_dict = model.variablesDict()
-
-    for order in orders:
-        for warehouse in warehouses:
-            for dock in warehouse.docks:
-                # Variable names as defined in the model
-                start_var_name = f"Start_Time_({order.id},_{warehouse.id},_{dock.id})"
-                end_var_name = f"End_Time_({order.id},_{warehouse.id},_{dock.id})"
-
-                # Retrieve and store the values of the variables
-                if start_var_name in vars_dict:
-                    start_times_values[(order.id, warehouse.id, dock.id)] = vars_dict[start_var_name].varValue
-                if end_var_name in vars_dict:
-                    end_times_values[(order.id, warehouse.id, dock.id)] = vars_dict[end_var_name].varValue
-
-    return start_times_values, end_times_values
-
-
-def parse_optimization_result(model, orders, warehouses):
-    # 获取决策变量的值
-    vars_dict = model.variablesDict()
-
-    # 解析月台分配
-    order_dock_assignments = {}
-    for order in orders:
-        for warehouse in warehouses:
-            for dock in warehouse.docks:
-                owd_var = f"OrderWarehouseDock_({order.id},_{warehouse.id},_{dock.id})"
-                if owd_var in vars_dict and pulp.value(vars_dict[owd_var]) == 1:
-                    if order.id not in order_dock_assignments:
-                        order_dock_assignments[order.id] = {}
-                    order_dock_assignments[order.id][warehouse.id] = dock.id
-
-    # 解析最迟完成时间
-    latest_completion_time = pulp.value(vars_dict["Latest_Completion_Time"])
-
-    return order_dock_assignments, latest_completion_time
-
-
-def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
-    # 生成仓库
-    warehouses = [Warehouse(warehouse_id=i, docks=[]) for i in range(num_warehouses)]
-
-    # 为每个仓库生成月台并赋予独立的效率
-    for warehouse in warehouses:
-        warehouse.docks = [Dock(dock_id=i, efficiency=random.uniform(0.5, 1.5), weight=random.randint(0, 3))
-                           for i in range(num_docks_per_warehouse)]
-
-    # 生成订单
-    orders = [Order(order_id=i,
-                    warehouse_loads=[random.randint(10, 50) for _ in range(num_warehouses)],
-                    priority=random.randint(1, 1),
-                    sequential=random.choice([True, False]))  # 假设优先级范围为 1 到 10
-              for i in range(num_orders)]
-
-    return orders, warehouses
-
-
-def parse_order_sequence_and_queue(start_times, end_times):
-    # 初始化存储结构
-    order_sequences = {}
-    dock_queues = {}
-
-    # 解析每个订单的仓库顺序
-    for (order_id, warehouse_id, dock_id), start_time in start_times.items():
-        if order_id not in order_sequences:
-            order_sequences[order_id] = []
-        order_sequences[order_id].append((warehouse_id, start_time, end_times[(order_id, warehouse_id, dock_id)]))
-
-    # 对每个订单的仓库访问顺序按开始时间进行排序
-    for order_id in order_sequences:
-        order_sequences[order_id].sort(key=lambda x: x[1])
-
-    # 解析每个月台的排队顺序
-    for (order_id, warehouse_id, dock_id), start_time in start_times.items():
-        if dock_id not in dock_queues:
-            dock_queues[dock_id] = []
-        dock_queues[dock_id].append((order_id, start_time, end_times[(order_id, warehouse_id, dock_id)]))
-
-    # 对每个月台的排队顺序按开始时间进行排序
-    for dock_id in dock_queues:
-        dock_queues[dock_id].sort(key=lambda x: x[1])
-
-    return order_sequences, dock_queues
-
-
 def main():
     orders, warehouses = generate_test_data(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
     specific_order_route = generate_specific_order_route(orders, warehouses)
@@ -287,9 +163,10 @@ def main():
     print("Start Times:", start_times)
     print("End Times:", end_times)
     plot_order_times_on_docks(start_times, end_times)
+    schedule = generate_schedule(start_times, end_times)
+    print(schedule)
+    order_sequences, dock_queues = parse_order_sequence_and_queue(start_times, end_times)
 
-    # order_sequences, dock_queues = parse_order_sequence_and_queue(start_times, end_times)
-    #
     # # 打印每个订单的仓库顺序
     # for order_id in order_sequences:
     #     print(f"Order {order_id}:")
