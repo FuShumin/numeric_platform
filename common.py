@@ -1,6 +1,7 @@
 import pulp
 import random
 import pandas as pd
+from datetime import datetime, timedelta
 
 
 class Order:
@@ -183,12 +184,11 @@ def load_schedule_from_file(filename):
         raise ValueError("Unsupported file format. Please use .csv or .json")
 
 
-def analyze_existing_schedule(start_times, end_times, warehouses):
+def analyze_existing_schedule_from_loaded_data(loaded_schedule, warehouses):
     """
-    Analyzes the existing schedule to find free time slots on each dock.
+    Analyzes the loaded schedule to find free time slots on each dock.
 
-    :param start_times: Dictionary of start times.
-    :param end_times: Dictionary of end times.
+    :param loaded_schedule: DataFrame with schedule data.
     :param warehouses: List of Warehouse objects.
     :return: Dictionary with free time slots for each dock.
     """
@@ -196,9 +196,10 @@ def analyze_existing_schedule(start_times, end_times, warehouses):
     for warehouse in warehouses:
         for dock in warehouse.docks:
             dock_key = (warehouse.id, dock.id)
-            busy_slots = [(start_times[(order_id, warehouse.id, dock.id)],
-                           end_times[(order_id, warehouse.id, dock.id)])
-                          for order_id in start_times if (order_id, warehouse.id, dock.id) in start_times]
+            # Filter busy slots for the specific warehouse and dock
+            busy_slots = loaded_schedule[(loaded_schedule['Warehouse ID'] == warehouse.id) &
+                                         (loaded_schedule['Dock ID'] == dock.id)]
+            busy_slots = list(zip(busy_slots['Start Time'], busy_slots['End Time']))
             busy_slots.sort()  # Sort by start time
             free_slots[dock_key] = find_free_slots(busy_slots)
     return free_slots
@@ -206,18 +207,127 @@ def analyze_existing_schedule(start_times, end_times, warehouses):
 
 def find_free_slots(busy_slots):
     """
-    Finds free time slots based on busy slots.
+    Finds free time slots based on busy slots. Excludes slots less than 5 minutes.
 
-    :param busy_slots: List of tuples representing busy time slots.
-    :return: List of tuples representing free time slots.
+    :param busy_slots: List of tuples representing busy time slots in minutes.
+    :return: List of tuples representing free time slots in minutes.
     """
     free_slots = []
-    end_of_last_busy_slot = 0
+    end_of_last_busy_slot = 0  # 起始时间设为0分钟
     for start, end in busy_slots:
-        if start > end_of_last_busy_slot:
+        if start - end_of_last_busy_slot >= 5:  # 检查空闲时间槽是否至少有5分钟
             free_slots.append((end_of_last_busy_slot, start))
         end_of_last_busy_slot = end
-    # Assuming the dock operates in a fixed time range, e.g., 0-24 hours
-    if end_of_last_busy_slot < 24:
-        free_slots.append((end_of_last_busy_slot, 24))
+
+    # 检查最后一个忙碌时间段到24小时（1440分钟）的时间
+    if 1440 - end_of_last_busy_slot >= 5:  # 如果最后一个忙碌时间段结束到24小时的时间大于或等于5分钟
+        free_slots.append((end_of_last_busy_slot, 1440))  # 添加空闲时间槽
+
     return free_slots
+
+
+def convert_to_timestamp(minutes):
+    """
+    Converts minutes from now to a UTC timestamp.
+
+    :param minutes: Minutes from the current time.
+    :return: UTC timestamp. UNIX/POSIX format
+    """
+    current_time = datetime.now()
+    future_time = current_time + timedelta(minutes=minutes)
+    return future_time.timestamp()
+
+
+def convert_to_readable_format(minutes):
+    """
+    Converts minutes from now to a readable date-time format.
+
+    :param minutes: Minutes from the current time.
+    :return: Readable date-time string in the format 'YYYY-MM-DD HH:MM:SS'.
+    """
+    current_time = datetime.now()
+    future_time = current_time + timedelta(minutes=minutes)
+    return future_time.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def convert_str_to_timestamp(time_str):
+    """
+    Converts a date-time string to a timestamp.
+
+    :param time_str: Date-time string in format 'YYYY-MM-DD HH:MM:SS'.
+    :return: Corresponding timestamp.
+    """
+    return datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S').timestamp()
+
+def timestamp_to_str(timestamp):
+    """
+    Converts a timestamp to a readable date-time string.
+
+    :param timestamp: Timestamp.
+    :return: Date-time string in format 'YYYY-MM-DD HH:MM:SS'.
+    """
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
+def convert_to_model_format(date_time_str):
+    """
+    Converts a readable date-time string to minutes from the current time.
+
+    :param date_time_str: Readable date-time string in the format 'YYYY-MM-DD HH:MM:SS'.
+    :return: Minutes from the current time.
+    """
+    current_time = datetime.now()
+    future_time = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
+    delta = future_time - current_time
+    return delta.total_seconds() / 60  # 转换为分钟
+
+
+def adjust_past_times(row, current_time_minutes):
+    """
+    Adjusts start and end times in the row if they are in the past.
+
+    :param row: A DataFrame row containing 'Start Time' and 'End Time'.
+    :param current_time_minutes: Current time in minutes from the start of the day.
+    :return: Adjusted row.
+    """
+    if row['Start Time'] < current_time_minutes:
+        row['Start Time'] = current_time_minutes
+    if row['End Time'] < current_time_minutes:
+        row['End Time'] = current_time_minutes
+    return row
+
+
+def main():
+    orders, warehouses = generate_test_data(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
+    schedule = generate_schedule(start_times, end_times)
+    schedule['Start Time'] = schedule['Start Time'].apply(convert_to_readable_format)
+    schedule['End Time'] = schedule['End Time'].apply(convert_to_readable_format)
+    filename = "test_schedule.csv"
+    save_schedule_to_file(schedule, filename)
+
+    loaded_schedule = load_schedule_from_file(filename)
+
+    # 获取当前时间的时间戳
+    current_timestamp = datetime.now().timestamp()
+    # 将 'End Time' 转换为时间戳并剔除过去的时间段
+    loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_str_to_timestamp)
+    loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
+    loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(timestamp_to_str)
+
+    # 截掉已经过去的时间段
+    loaded_schedule = loaded_schedule[(loaded_schedule['End Time'] > current_timestamp)]
+
+    # 转换时间为模型可用的分钟格式
+    loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(convert_to_model_format)
+    loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_to_model_format)
+
+    # 检查负数的start_time设为0
+    loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(lambda x: max(x, 0))
+
+    # 查找空闲时间段， 空闲窗口小于5分钟的窗口忽略不计。
+    free_slots = analyze_existing_schedule_from_loaded_data(loaded_schedule, warehouses)
+    for dock_key, slots in free_slots.items():
+        print(f"Dock {dock_key}: Free Slots: {slots}")
+
+
+if __name__ == "__main__":
+    main()

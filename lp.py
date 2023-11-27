@@ -50,10 +50,10 @@ def generate_specific_order_route(orders, warehouses):
             specific_order_route[order.id] = route
 
     return specific_order_route
-    # TODO 载货量为0的仓库去除 【测试】
-    # TODO 仓库是否按序 【测试】
+    # TODO 载货量为0的仓库去除 【调试】
+    # 仓库是否按序 【测试】
     # 月台排队顺序 - 2阶段
-    # TODO 提取仓库顺序，月台排队顺序 - 2阶段后
+    # TODO 解析提取仓库顺序，月台排队顺序 - 2阶段后
     # 运单优先级约束 - 2阶段
     # TODO 生成方案之前，已经有月台正在排队的情况。增量设计
 
