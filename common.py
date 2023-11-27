@@ -259,6 +259,7 @@ def convert_str_to_timestamp(time_str):
     """
     return datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S').timestamp()
 
+
 def timestamp_to_str(timestamp):
     """
     Converts a timestamp to a readable date-time string.
@@ -267,6 +268,7 @@ def timestamp_to_str(timestamp):
     :return: Date-time string in format 'YYYY-MM-DD HH:MM:SS'.
     """
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+
 
 def convert_to_model_format(date_time_str):
     """
@@ -279,21 +281,6 @@ def convert_to_model_format(date_time_str):
     future_time = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
     delta = future_time - current_time
     return delta.total_seconds() / 60  # 转换为分钟
-
-
-def adjust_past_times(row, current_time_minutes):
-    """
-    Adjusts start and end times in the row if they are in the past.
-
-    :param row: A DataFrame row containing 'Start Time' and 'End Time'.
-    :param current_time_minutes: Current time in minutes from the start of the day.
-    :return: Adjusted row.
-    """
-    if row['Start Time'] < current_time_minutes:
-        row['Start Time'] = current_time_minutes
-    if row['End Time'] < current_time_minutes:
-        row['End Time'] = current_time_minutes
-    return row
 
 
 def main():
@@ -312,9 +299,6 @@ def main():
     loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_str_to_timestamp)
     loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
     loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(timestamp_to_str)
-
-    # 截掉已经过去的时间段
-    loaded_schedule = loaded_schedule[(loaded_schedule['End Time'] > current_timestamp)]
 
     # 转换时间为模型可用的分钟格式
     loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(convert_to_model_format)
