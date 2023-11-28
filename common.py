@@ -35,7 +35,7 @@ class Warehouse:
 
 
 def parse_queue_results(model, orders, warehouses):
-    # Retrieve decision variables
+    # 获取模型的决策变量
     start_times_values = {}
     end_times_values = {}
     vars_dict = model.variablesDict()
@@ -43,11 +43,11 @@ def parse_queue_results(model, orders, warehouses):
     for order in orders:
         for warehouse in warehouses:
             for dock in warehouse.docks:
-                # Variable names as defined in the model
+                # 用模型里同样的名字定义
                 start_var_name = f"Start_Time_({order.id},_{warehouse.id},_{dock.id})"
                 end_var_name = f"End_Time_({order.id},_{warehouse.id},_{dock.id})"
 
-                # Retrieve and store the values of the variables
+                # 获取并储存决策变量的值
                 if start_var_name in vars_dict:
                     start_times_values[(order.id, warehouse.id, dock.id)] = vars_dict[start_var_name].varValue
                 if end_var_name in vars_dict:
@@ -124,23 +124,37 @@ def parse_order_sequence_and_queue(start_times, end_times):
     return order_sequences, dock_queues
 
 
-def save_schedule_to_file(schedule, filename):
-    """
-    Saves the schedule to a file.
-    :param schedule: Schedule data, either as a dictionary or DataFrame.
-    :param filename: Name of the file to save the schedule.
-    """
-    # Convert to DataFrame if schedule is not already in that format
-    if not isinstance(schedule, pd.DataFrame):
-        schedule = pd.DataFrame(schedule)
+def save_schedule_to_file(schedule, filename="test_schedule.csv"):
+    def load_existing_schedule():
+        try:
+            return pd.read_csv(filename)
+        except FileNotFoundError:
+            return pd.DataFrame(columns=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"])
 
-    # Determine the format from filename extension
-    if filename.endswith('.csv'):
-        schedule.to_csv(filename, index=False)
-    elif filename.endswith('.json'):
-        schedule.to_json(filename, orient='records', lines=True)
-    else:
-        raise ValueError("Unsupported file format. Please use .csv or .json")
+    def filter_old_data(df):
+        # 获取7天前的日期时间
+        cutoff_date = datetime.now() - timedelta(days=7)
+
+        # 将 'End Time' 列从字符串转换为 datetime
+        df['End Time'] = pd.to_datetime(df['End Time'])
+
+        # 保留结束时间在7天内的数据
+        return df[df['End Time'] >= cutoff_date]
+
+    existing_schedule = load_existing_schedule()
+    existing_schedule['Start Time'] = pd.to_datetime(existing_schedule['Start Time'])
+    existing_schedule['End Time'] = pd.to_datetime(existing_schedule['End Time'])
+
+    # 合并现有和新的调度数据
+    updated_schedule = pd.concat([existing_schedule, schedule], ignore_index=True)
+
+    # 去除重复项
+    updated_schedule.drop_duplicates(subset=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"],
+                                     inplace=True)
+    # 清理7天以上的旧数据
+    updated_schedule = filter_old_data(updated_schedule)
+    # 保存到 CSV 文件
+    updated_schedule.to_csv(filename, index=False)
 
 
 def generate_schedule(start_times, end_times):
@@ -167,6 +181,9 @@ def generate_schedule(start_times, end_times):
 
     # Convert the list of dictionaries to a DataFrame
     schedule_df = pd.DataFrame(schedule_data)
+    # 应用时间格式转换
+    schedule_df['Start Time'] = schedule_df['Start Time'].apply(convert_to_readable_format)
+    schedule_df['End Time'] = schedule_df['End Time'].apply(convert_to_readable_format)
     return schedule_df
 
 
@@ -272,8 +289,6 @@ def convert_to_model_format(date_time_str):
 def main():
     orders, warehouses = generate_test_data(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
     schedule = generate_schedule(start_times, end_times)
-    schedule['Start Time'] = schedule['Start Time'].apply(convert_to_readable_format)
-    schedule['End Time'] = schedule['End Time'].apply(convert_to_readable_format)
     filename = "test_schedule.csv"
     save_schedule_to_file(schedule, filename)
 
@@ -302,6 +317,12 @@ def main():
     order_dock_assignments, latest_completion_time = parse_optimization_result(model, orders, warehouses)
     queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route, busy_slots)
     queue_model.solve()
+    start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
+    plot_order_times_on_docks(start_times, end_times, busy_slots)
+    schedule_new = generate_schedule(start_times, end_times)
+    schedule_new['Start Time'] = schedule_new['Start Time'].apply(convert_to_readable_format)
+    schedule_new['End Time'] = schedule_new['End Time'].apply(convert_to_readable_format)
+    save_schedule_to_file(schedule, "test_schedule.csv")
 
 
 if __name__ == "__main__":
