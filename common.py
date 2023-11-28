@@ -206,11 +206,11 @@ def load_and_prepare_schedule(filename):
 
 def generate_schedule(start_times, end_times):
     """
-    Generates a schedule from the start and end times.
+    从开始和结束时间生成一个日程表。
 
-    :param start_times: Dictionary of start times, keys are (order ID, warehouse ID, dock ID).
-    :param end_times: Dictionary of end times, keys are (order ID, warehouse ID, dock ID).
-    :return: DataFrame with the schedule information.
+    :param start_times: 开始时间的字典，键是（订单ID，仓库ID，装卸口ID）。
+    :param end_times: 结束时间的字典，键是（订单ID，仓库ID，装卸口ID）。
+    :return: 包含日程表信息的DataFrame。
     """
     schedule_data = []
 
@@ -226,7 +226,7 @@ def generate_schedule(start_times, end_times):
             "End Time": end
         })
 
-    # Convert the list of dictionaries to a DataFrame
+    # 字典列表转化为 DataFrame
     schedule_df = pd.DataFrame(schedule_data)
     # 应用时间格式转换
     schedule_df['Start Time'] = schedule_df['Start Time'].apply(convert_to_readable_format)
@@ -236,9 +236,9 @@ def generate_schedule(start_times, end_times):
 
 def load_schedule_from_file(filename):
     """
-    Loads the schedule from a file.
-    :param filename: Name of the file to load the schedule from.
-    :return: Schedule data as a DataFrame.
+    从文件加载日程表。
+    :param filename: 加载日程表的文件名。
+    :return: DataFrame格式的日程表数据。
     """
     if filename.endswith('.csv'):
         return pd.read_csv(filename)
@@ -250,11 +250,11 @@ def load_schedule_from_file(filename):
 
 def calculate_busy_times_and_windows(loaded_schedule, warehouses):
     """
-    Calculates the total busy time and busy time windows for each dock.
+    计算每个装卸口的总繁忙时间和繁忙时间窗口。
 
-    :param loaded_schedule: DataFrame with schedule data.
-    :param warehouses: List of Warehouse objects.
-    :return: Tuple of two dictionaries - one with total busy time and another with busy time windows for each dock.
+    :param loaded_schedule: 包含日程表数据的DataFrame。
+    :param warehouses: 仓库对象列表。
+    :return: 两个字典组成的元组 - 一个是每个装卸口的总繁忙时间，另一个是繁忙时间窗口。
     """
     total_busy_time = {}
     busy_windows = {}
@@ -278,10 +278,10 @@ def calculate_busy_times_and_windows(loaded_schedule, warehouses):
 
 def convert_to_readable_format(minutes):
     """
-    Converts minutes from now to a readable date-time format.
+    将从现在开始的分钟数转换为可读的日期时间格式。
 
-    :param minutes: Minutes from the current time.
-    :return: Readable date-time string in the format 'YYYY-MM-DD HH:MM:SS'.
+    :param minutes: 当前时间起的分钟数。
+    :return: 格式为'YYYY-MM-DD HH:MM:SS'的可读日期时间字符串。
     """
     current_time = datetime.now()
     future_time = current_time + timedelta(minutes=minutes)
@@ -290,30 +290,30 @@ def convert_to_readable_format(minutes):
 
 def convert_str_to_timestamp(time_str):
     """
-    Converts a date-time string to a timestamp.
+    将日期时间字符串转换为时间戳。
 
-    :param time_str: Date-time string in format 'YYYY-MM-DD HH:MM:SS'.
-    :return: Corresponding timestamp.
+    :param time_str: 格式为'YYYY-MM-DD HH:MM:SS'的日期时间字符串。
+    :return: 对应的时间戳。
     """
     return datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S').timestamp()
 
 
 def timestamp_to_str(timestamp):
     """
-    Converts a timestamp to a readable date-time string.
+    将时间戳转换为可读的日期时间字符串。
 
-    :param timestamp: Timestamp.
-    :return: Date-time string in format 'YYYY-MM-DD HH:MM:SS'.
+    :param timestamp: 时间戳。
+    :return: 格式为'YYYY-MM-DD HH:MM:SS'的日期时间字符串。
     """
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
 
 def convert_to_model_format(date_time_str):
     """
-    Converts a readable date-time string to minutes from the current time.
+    将可读的日期时间字符串转换为从当前时间起的分钟数。
 
-    :param date_time_str: Readable date-time string in the format 'YYYY-MM-DD HH:MM:SS'.
-    :return: Minutes from the current time.
+    :param date_time_str: 格式为'YYYY-MM-DD HH:MM:SS'的可读日期时间字符串。
+    :return: 从当前时间起的分钟数。
     """
     if not isinstance(date_time_str, str):
         raise ValueError("Expected a string in the format 'YYYY-MM-DD HH:MM:SS', got: {}".format(date_time_str))
