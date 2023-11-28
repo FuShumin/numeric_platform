@@ -99,8 +99,9 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                 # 优先级约束：优先级高的订单先完成 结束时间<=下一个优先级排序订单的开始时间
                 if i < len(orders_in_dock) - 1:
                     next_order = orders_in_dock[i + 1]
-                    model += end_times[order.id, warehouse.id, dock.id] <= start_times[
-                        next_order.id, warehouse.id, dock.id]
+                    if order.priority != next_order.priority:
+                        model += end_times[order.id, warehouse.id, dock.id] <= start_times[
+                            next_order.id, warehouse.id, dock.id]
 
             # 同一时间同一月台仅一个订单
             for i in range(len(orders_in_dock)):
@@ -118,7 +119,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
             model += end_times[order_id, prev_warehouse, assigned_dock] <= start_times[
                 order_id, curr_warehouse, order_dock_assignments[order_id][curr_warehouse]]
 
-    # 对于每个非按序订单，确保在任何给定时间只在一个月台上作业
+    # 【约束】对于每个非按序订单，确保在任何给定时间只在一个月台上作业
     for order in orders:
         assigned_docks = [(w_id, d_id) for w_id, d_id in order_dock_assignments[order.id].items()]
 
@@ -140,7 +141,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                 model += end_times[order.id, w_id1, d_id1] <= start_times[order.id, w_id2, d_id2] + (1 - before) * M
                 model += end_times[order.id, w_id2, d_id2] <= start_times[order.id, w_id1, d_id1] + before * M
 
-    # 添加不与已存在的忙碌时间窗口重叠的约束
+    # 【约束】订单作业窗口不与已存在的忙碌时间窗口重叠
     for order in orders:
         for warehouse in warehouses:
             if order.warehouse_loads[warehouse.id] > 0:
