@@ -5,25 +5,40 @@ from datetime import datetime, timedelta
 
 
 class Order:
-    def __init__(self, order_id, warehouse_loads, priority, sequential):
+    def __init__(self, order_id, warehouse_loads, priority, sequential, required_carriage, order_type):
         self.id = order_id
-        self.warehouse_loads = warehouse_loads
+        self.warehouse_loads = warehouse_loads  # 字典，键为仓库 ID，值为负载
         self.priority = priority
         self.sequential = sequential
+        self.required_carriage = required_carriage
+        self.order_type = order_type
 
     def __str__(self):
-        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority})"
+        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority}, Carriage: {self.required_carriage}, Type: {self.order_type})"
 
 
 class Dock:
-    def __init__(self, dock_id, efficiency, weight):
+    def __init__(self, dock_id, outbound_efficiency, inbound_efficiency, weight, dock_type, compatible_carriage):
         self.id = dock_id
-        self.efficiency = efficiency
+        self.outbound_efficiency = outbound_efficiency
+        self.inbound_efficiency = inbound_efficiency
+        self.efficiency = None
         self.weight = weight
+        self.dock_type = dock_type
+        self.compatible_carriage = compatible_carriage
+
+    def set_efficiency(self, order_type):
+        if order_type == "装车":
+            self.efficiency = self.outbound_efficiency
+        elif order_type == "卸车":
+            self.efficiency = self.inbound_efficiency
 
     def __str__(self):
-        return f"Dock(ID: {self.id}, Efficiency: {self.efficiency}, Weight:{self.weight})"
+        return f"Dock(ID: {self.id}, Outbound Efficiency: {self.outbound_efficiency}, Inbound Efficiency: {self.inbound_efficiency}, Efficiency: {self.efficiency}, Weight: {self.weight}, Type: {self.dock_type}, Compatible Carriage: {self.compatible_carriage})"
 
+
+# for dock in docks:
+#     dock.set_efficiency(order_type)
 
 class Warehouse:
     def __init__(self, warehouse_id, docks):
