@@ -25,8 +25,9 @@ def create_lp_model(orders, warehouses, total_busy_time=None):
             dock_completion_time = LpVariable(f"DockCompletionTime_{warehouse.id}_{dock.id}", lowBound=0, cat=LpInteger)
             model += dock_completion_time <= latest_completion_time  # 最迟完成时间为最长的一条月台队列完成的时间
             existing_dock_queueingTime = total_busy_time.get(dock_key, 0)
-            total_load = pulp.lpSum(order.warehouse_loads[warehouse.id] * owd[order.id, warehouse.id, dock.id]
-                                    for order in orders if order.warehouse_loads[warehouse.id] > 0)  # 每个仓库的月台队列 总载货量
+            total_load = pulp.lpSum(
+                order.warehouse_loads[warehouse.id] * owd[order.id, warehouse.id, dock.id]  # TODO 根据仓库键找到装载量
+                for order in orders if order.warehouse_loads[warehouse.id] > 0)  # 每个仓库的月台队列 总载货量
             model += dock_completion_time >= total_load / dock.efficiency + existing_dock_queueingTime
             # 月台完成时间为总载货量/该月台效率
 
@@ -54,12 +55,11 @@ def generate_specific_order_route(orders, warehouses):
             specific_order_route[order.id] = route
 
     return specific_order_route
-    # TODO 载货量为0的仓库去除 【调试】
     # 仓库是否按序 【测试】
     # 月台排队顺序 - 2阶段
-    # TODO 解析提取仓库顺序，月台排队顺序 - 2阶段后
+    #  解析提取仓库顺序，月台排队顺序
     # 运单优先级约束 - 2阶段
-    # TODO 生成方案之前，已经有月台正在排队的情况。增量设计
+    #  生成方案之前，已经有月台正在排队的情况，增量调度更新
 
 
 def create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route, busy_windows=None):
@@ -199,18 +199,6 @@ def main():
     print("\nLoaded Schedule:\n", loaded_schedule)
     assert schedule.equals(loaded_schedule), "Loaded schedule does not match the original."
     order_sequences, dock_queues = parse_order_sequence_and_queue(start_times, end_times)
-
-    # # 打印每个订单的仓库顺序
-    # for order_id in order_sequences:
-    #     print(f"Order {order_id}:")
-    #     for warehouse_id, start, end in order_sequences[order_id]:
-    #         print(f"  Warehouse {warehouse_id}: Start at {start}, End at {end}")
-    #
-    # # 打印每个月台上的排队顺序
-    # for dock_id in dock_queues:
-    #     print(f"Dock {dock_id}:")
-    #     for order_id, start, end in dock_queues[dock_id]:
-    #         print(f"  Order {order_id}: Start at {start}, End at {end}")
 
 
 if __name__ == "__main__":
