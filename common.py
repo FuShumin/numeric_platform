@@ -184,15 +184,16 @@ def load_schedule_from_file(filename):
         raise ValueError("Unsupported file format. Please use .csv or .json")
 
 
-def analyze_existing_schedule_from_loaded_data(loaded_schedule, warehouses):
+def calculate_busy_times_and_windows(loaded_schedule, warehouses):
     """
-    Analyzes the loaded schedule to find free time slots on each dock.
+    Calculates the total busy time and busy time windows for each dock.
 
     :param loaded_schedule: DataFrame with schedule data.
     :param warehouses: List of Warehouse objects.
-    :return: Dictionary with free time slots for each dock.
+    :return: Tuple of two dictionaries - one with total busy time and another with busy time windows for each dock.
     """
-    free_slots = {}
+    total_busy_time = {}
+    busy_windows = {}
     for warehouse in warehouses:
         for dock in warehouse.docks:
             dock_key = (warehouse.id, dock.id)
@@ -200,30 +201,15 @@ def analyze_existing_schedule_from_loaded_data(loaded_schedule, warehouses):
             busy_slots = loaded_schedule[(loaded_schedule['Warehouse ID'] == warehouse.id) &
                                          (loaded_schedule['Dock ID'] == dock.id)]
             busy_slots = list(zip(busy_slots['Start Time'], busy_slots['End Time']))
-            busy_slots.sort()  # Sort by start time
-            free_slots[dock_key] = find_free_slots(busy_slots)
-    return free_slots
 
+            # Calculate total busy time for the dock
+            total_busy = sum(end - start for start, end in busy_slots)
+            total_busy_time[dock_key] = total_busy
 
-def find_free_slots(busy_slots):
-    """
-    Finds free time slots based on busy slots. Excludes slots less than 5 minutes.
+            # Store busy windows
+            busy_windows[dock_key] = busy_slots
 
-    :param busy_slots: List of tuples representing busy time slots in minutes.
-    :return: List of tuples representing free time slots in minutes.
-    """
-    free_slots = []
-    end_of_last_busy_slot = 0  # 起始时间设为0分钟
-    for start, end in busy_slots:
-        if start - end_of_last_busy_slot >= 5:  # 检查空闲时间槽是否至少有5分钟
-            free_slots.append((end_of_last_busy_slot, start))
-        end_of_last_busy_slot = end
-
-    # 检查最后一个忙碌时间段到24小时（1440分钟）的时间
-    if 1440 - end_of_last_busy_slot >= 5:  # 如果最后一个忙碌时间段结束到24小时的时间大于或等于5分钟
-        free_slots.append((end_of_last_busy_slot, 1440))  # 添加空闲时间槽
-
-    return free_slots
+    return total_busy_time, busy_windows
 
 
 def convert_to_timestamp(minutes):
@@ -307,10 +293,15 @@ def main():
     # 检查负数的start_time设为0
     loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(lambda x: max(x, 0))
 
-    # 查找空闲时间段， 空闲窗口小于5分钟的窗口忽略不计。
-    free_slots = analyze_existing_schedule_from_loaded_data(loaded_schedule, warehouses)
-    for dock_key, slots in free_slots.items():
-        print(f"Dock {dock_key}: Free Slots: {slots}")
+    # 查找每个月台已占用的忙碌时间窗口
+    existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
+
+    model = create_lp_model(orders, warehouses, existing_busy_time)
+    model.solve()
+
+    order_dock_assignments, latest_completion_time = parse_optimization_result(model, orders, warehouses)
+    queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route, busy_slots)
+    queue_model.solve()
 
 
 if __name__ == "__main__":
