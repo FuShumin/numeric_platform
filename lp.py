@@ -3,9 +3,10 @@ from visualization import *
 from common import *
 
 
-def create_lp_model(orders, warehouses):
+def create_lp_model(orders, warehouses, total_busy_time=None):
     model = LpProblem("Vehicle_Scheduling_with_Queue", LpMinimize)
-
+    if total_busy_time is None:
+        total_busy_time = {}
     # 月台分配决策变量
     owd = LpVariable.dicts("OrderWarehouseDock",
                            [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
@@ -20,11 +21,14 @@ def create_lp_model(orders, warehouses):
     # 装货时间约束
     for warehouse in warehouses:
         for dock in warehouse.docks:
+            dock_key = (warehouse.id, dock.id)
             dock_completion_time = LpVariable(f"DockCompletionTime_{warehouse.id}_{dock.id}", lowBound=0, cat=LpInteger)
             model += dock_completion_time <= latest_completion_time  # 最迟完成时间为最长的一条月台队列完成的时间
+            existing_dock_queueingTime = total_busy_time.get(dock_key, 0)
             total_load = pulp.lpSum(order.warehouse_loads[warehouse.id] * owd[order.id, warehouse.id, dock.id]
                                     for order in orders if order.warehouse_loads[warehouse.id] > 0)  # 每个仓库的月台队列 总载货量
-            model += dock_completion_time >= total_load / dock.efficiency  # 月台完成时间为总载货量/该月台效率
+            model += dock_completion_time >= total_load / dock.efficiency + existing_dock_queueingTime
+            # 月台完成时间为总载货量/该月台效率
 
     # 确保每个订单在所有装货量非零的仓库中只选择一个月台
     for order in orders:
@@ -58,7 +62,10 @@ def generate_specific_order_route(orders, warehouses):
     # TODO 生成方案之前，已经有月台正在排队的情况。增量设计
 
 
-def create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route):
+def create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route, busy_windows=None):
+    if busy_windows is None:
+        busy_windows = {}
+    M = 100000
     model = LpProblem("Queue_Optimization", LpMinimize)
     fixed_cost = 6  # 驶入驶离固定耗时4+2分钟
     # 定义开始时间和结束时间变量
@@ -111,8 +118,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
             model += end_times[order_id, prev_warehouse, assigned_dock] <= start_times[
                 order_id, curr_warehouse, order_dock_assignments[order_id][curr_warehouse]]
 
-    # 对于每个订单，确保在任何给定时间只在一个月台上作业，但是非按序订单还没有优化排序 改这个
-    M = 100000
+    # 对于每个非按序订单，确保在任何给定时间只在一个月台上作业
     for order in orders:
         assigned_docks = [(w_id, d_id) for w_id, d_id in order_dock_assignments[order.id].items()]
 
@@ -133,6 +139,23 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                 '''
                 model += end_times[order.id, w_id1, d_id1] <= start_times[order.id, w_id2, d_id2] + (1 - before) * M
                 model += end_times[order.id, w_id2, d_id2] <= start_times[order.id, w_id1, d_id1] + before * M
+
+    # 添加不与已存在的忙碌时间窗口重叠的约束
+    for order in orders:
+        for warehouse in warehouses:
+            if order.warehouse_loads[warehouse.id] > 0:
+                dock_id = order_dock_assignments[order.id][warehouse.id]
+                dock_key = (warehouse.id, dock_id)
+                existing_windows = busy_windows.get(dock_key, [])
+
+                # 对于每个忙碌时间窗口，添加不重叠的约束
+                for idx, (busy_start, busy_end) in enumerate(existing_windows):
+                    # 为每个忙碌时间窗口创建一个唯一的overlap辅助决策变量
+                    overlap = LpVariable(f"Overlap_{order.id}_{warehouse.id}_{dock_id}_{idx}", 0, 1, LpInteger)
+
+                    # 添加不与忙碌时间窗口重叠的约束
+                    model += end_times[order.id, warehouse.id, dock_id] <= busy_start + (1 - overlap) * M
+                    model += busy_end <= start_times[order.id, warehouse.id, dock_id] + overlap * M
 
     return model
 
