@@ -157,6 +157,38 @@ def save_schedule_to_file(schedule, filename="test_schedule.csv"):
     updated_schedule.to_csv(filename, index=False)
 
 
+def load_and_prepare_schedule(filename):
+    """
+    加载调度文件，并准备数据以便后续处理。
+
+    :param filename: 调度数据的文件名。
+    :return: 准备好的 DataFrame。
+    """
+    try:
+        loaded_schedule = pd.read_csv(filename)
+
+        # 获取当前时间的时间戳
+        current_timestamp = datetime.now().timestamp()
+
+        # 将 'End Time' 转换为时间戳并剔除过去的时间段
+        loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_str_to_timestamp)
+        loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
+
+        # 转换时间为模型可用的分钟格式
+        loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(convert_to_model_format)
+        loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(timestamp_to_str)
+        loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_to_model_format)
+
+        # 检查负数的 start_time 设为 0
+        loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(lambda x: max(x, 0))
+
+        return loaded_schedule
+
+    except FileNotFoundError:
+        # 如果文件不存在，返回一个空的 DataFrame
+        return pd.DataFrame(columns=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"])
+
+
 def generate_schedule(start_times, end_times):
     """
     Generates a schedule from the start and end times.
@@ -229,18 +261,6 @@ def calculate_busy_times_and_windows(loaded_schedule, warehouses):
     return total_busy_time, busy_windows
 
 
-def convert_to_timestamp(minutes):
-    """
-    Converts minutes from now to a UTC timestamp.
-
-    :param minutes: Minutes from the current time.
-    :return: UTC timestamp. UNIX/POSIX format
-    """
-    current_time = datetime.now()
-    future_time = current_time + timedelta(minutes=minutes)
-    return future_time.timestamp()
-
-
 def convert_to_readable_format(minutes):
     """
     Converts minutes from now to a readable date-time format.
@@ -280,10 +300,15 @@ def convert_to_model_format(date_time_str):
     :param date_time_str: Readable date-time string in the format 'YYYY-MM-DD HH:MM:SS'.
     :return: Minutes from the current time.
     """
-    current_time = datetime.now()
-    future_time = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
-    delta = future_time - current_time
-    return delta.total_seconds() / 60  # 转换为分钟
+    if not isinstance(date_time_str, str):
+        raise ValueError("Expected a string in the format 'YYYY-MM-DD HH:MM:SS', got: {}".format(date_time_str))
+
+    try:
+        parsed_time = datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S')
+        current_time = datetime.now()
+        return (parsed_time - current_time).total_seconds() / 60
+    except ValueError as e:
+        raise ValueError("Error parsing date-time string: {}. Error: {}".format(date_time_str, e))
 
 
 def main():
@@ -292,21 +317,7 @@ def main():
     filename = "test_schedule.csv"
     save_schedule_to_file(schedule, filename)
 
-    loaded_schedule = load_schedule_from_file(filename)
-
-    # 获取当前时间的时间戳
-    current_timestamp = datetime.now().timestamp()
-    # 将 'End Time' 转换为时间戳并剔除过去的时间段
-    loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_str_to_timestamp)
-    loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
-    loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(timestamp_to_str)
-
-    # 转换时间为模型可用的分钟格式
-    loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(convert_to_model_format)
-    loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_to_model_format)
-
-    # 检查负数的start_time设为0
-    loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(lambda x: max(x, 0))
+    loaded_schedule = load_and_prepare_schedule(filename)
 
     # 查找每个月台已占用的忙碌时间窗口
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
@@ -322,7 +333,7 @@ def main():
     schedule_new = generate_schedule(start_times, end_times)
     schedule_new['Start Time'] = schedule_new['Start Time'].apply(convert_to_readable_format)
     schedule_new['End Time'] = schedule_new['End Time'].apply(convert_to_readable_format)
-    save_schedule_to_file(schedule, "test_schedule.csv")
+    save_schedule_to_file(schedule_new, "test_schedule.csv")
 
 
 if __name__ == "__main__":
