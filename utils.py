@@ -1,32 +1,47 @@
 from common import Warehouse, Dock, Order
 
 
-def parse_input_data(data):
-    # 解析订单数据
-    orders = []
-    for order_data in data['orders']:
-        order_id = order_data['order_id']
-        warehouse_loads = {wl['warehouse_id']: wl['load'] for wl in order_data['warehouse_loads']}
-        priority = order_data['priority']
-        sequential = order_data['sequential']
-        required_carriage = order_data['required_carriage']
-        order_type = order_data['order_type']
-        orders.append(Order(order_id, warehouse_loads, priority, sequential, required_carriage, order_type))
+def parse_schedule(schedule):
+    order_sequences = {}
+    order_dock_assignments = {}
+    docks_queues = {}
 
-    # 解析仓库和月台数据
-    warehouses = []
-    for warehouse_data in data['warehouses']:
-        warehouse_id = warehouse_data['warehouse_id']
-        docks = []
-        for dock_data in warehouse_data['docks']:
-            dock_id = dock_data['dock_id']
-            outbound_efficiency = dock_data['outbound_efficiency']
-            inbound_efficiency = dock_data['inbound_efficiency']
-            weight = dock_data['weight']
-            dock_type = dock_data['dock_type']
-            compatible_carriage = dock_data['compatible_carriage']
-            docks.append(Dock(dock_id, outbound_efficiency, inbound_efficiency, weight, dock_type, compatible_carriage))
-        warehouses.append(Warehouse(warehouse_id, docks))
+    # 解析订单的仓库路线和月台分配
+    for _, row in schedule.iterrows():
+        order_id = str(row['Order ID'])
+        warehouse_id = str(row['Warehouse ID'])
+        dock_id = row['Dock ID']
 
-    return orders, warehouses
+        # 更新订单的仓库路线
+        if order_id not in order_sequences:
+            order_sequences[order_id] = []
+        if warehouse_id not in order_sequences[order_id]:
+            order_sequences[order_id].append(warehouse_id)
 
+        # 更新订单的月台分配
+        if order_id not in order_dock_assignments:
+            order_dock_assignments[order_id] = {}
+        order_dock_assignments[order_id][warehouse_id] = dock_id
+
+    # 解析每个月台的排队信息
+    for _, row in schedule.iterrows():
+        dock_key = f"{row['Warehouse ID']}-{row['Dock ID']}"
+        if dock_key not in docks_queues:
+            docks_queues[dock_key] = {"dock_id": row['Dock ID'], "queue": []}
+
+        queue_item = {
+            "position": len(docks_queues[dock_key]["queue"]) + 1,
+            "order_id": row['Order ID'],
+            "start_time": str(row['Start Time']),
+            "end_time": str(row['End Time'])
+        }
+        docks_queues[dock_key]["queue"].append(queue_item)
+
+    # Convert dock queues to a list
+    docks_queues_list = list(docks_queues.values())
+
+    return {
+        "order_sequences": order_sequences,
+        "order_dock_assignments": order_dock_assignments,
+        "docks_queues": docks_queues_list
+    }

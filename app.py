@@ -88,28 +88,52 @@ def external_orders_queueing():
         print(f"Order ID: {order_id}, Route: {route}")
 
     # SECTION 3 对装车订单进行一阶段线性规划
-    loading_model = create_lp_model(loading_orders, loading_warehouses)
+    # 读取已有时间表
+    filename = "local_schedule.csv"
+    loaded_schedule = load_and_prepare_schedule(filename)
+    existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
+
+    loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
     loading_model.solve()
     loading_var_dicts = loading_model.variablesDict()
     loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model, orders, warehouses)
     print("Order Dock Assignments:", loading_order_dock_assignments)
     print("Latest Completion Time:", loading_latest_completion_time)
     # SECTION 3.5 对装车订单二阶段排队规划
-    queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments, loading_order_routes)
-    queue_model.solve()
+    loading_queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments, loading_order_routes, busy_slots)
+    loading_queue_model.solve()
 
-    start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
+    loading_start_times, loading_end_times = parse_queue_results(loading_queue_model, loading_orders, loading_warehouses)
     # 显示排队结果
-    print("Start Times:", start_times)
-    print("End Times:", end_times)
+    print("Start Times:", loading_start_times)
+    print("End Times:", loading_end_times)
     # SECTION 3.8 数据持久化
-    plot_order_times_on_docks(start_times, end_times, loading_warehouses)
-    schedule = generate_schedule(start_times, end_times)
+    plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
+    loading_schedule = generate_schedule(loading_start_times, loading_end_times)
     # 保存时间表到文件
-    filename = "local_schedule.csv"
-    save_schedule_to_file(schedule, filename)
+    save_schedule_to_file(loading_schedule, filename)
+    # SECTION 4 卸车订单的处理, 同上
+    # 查找每个月台已占用的忙碌时间窗口
+    loaded_schedule = load_and_prepare_schedule(filename)
+    existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
 
-    return jsonify({"message": "Algorithm 1 processed the data"})
+    unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
+    unloading_model.solve()
+    unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model, unloading_orders, unloading_warehouses)
+
+    unloading_queue_model = create_queue_model(unloading_orders, unloading_warehouses, unloading_order_dock_assignments, unloading_order_routes, busy_slots)
+    unloading_queue_model.solve()
+    unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders, unloading_warehouses)
+    plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
+
+    unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times)
+    save_schedule_to_file(unloading_schedule, filename)
+
+    # SECTION 5 提取全部订单结果，解析成出参格式
+    schedule = pd.concat([loading_schedule, unloading_schedule], ignore_index=True)
+    parsed_result = parse_schedule(schedule)
+    return jsonify({"status": "success", "data": parsed_result})
+
 
 
 @app.route('/internal_orders_queueing', methods=['POST'])
