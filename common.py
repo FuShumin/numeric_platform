@@ -164,7 +164,7 @@ def save_schedule_to_file(schedule, filename="test_schedule.csv"):
     updated_schedule = pd.concat([existing_schedule, schedule], ignore_index=True)
 
     # 去除重复项
-    updated_schedule.drop_duplicates(subset=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"],
+    updated_schedule.drop_duplicates(subset=["Order ID", "Warehouse ID", "Dock ID"],
                                      inplace=True)
     # 清理7天以上的旧数据
     updated_schedule = filter_old_data(updated_schedule)
