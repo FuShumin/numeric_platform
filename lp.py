@@ -96,12 +96,14 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
     # 约束条件 首先排序订单优先级。
     for warehouse in warehouses:
         for dock in warehouse.docks:
-            orders_in_dock = [order for order in orders if order_dock_assignments[order.id][warehouse.id] == dock.id]
-            orders_in_dock.sort(key=lambda order: order.priority, reverse=True)  # 每个月台列的订单排出一个优先级。
+            # 列出所有的在这个仓库-月台上的订单
+            orders_in_dock = [order for order in orders if order.id in order_dock_assignments and warehouse.id in order_dock_assignments[order.id] and order_dock_assignments[order.id][warehouse.id] == dock.id]
+            orders_in_dock.sort(key=lambda order: order.priority, reverse=True)  # 给每个月台列的订单排出一个优先级。
 
             for i in range(len(orders_in_dock)):
                 order = orders_in_dock[i]
-                processing_time = fixed_cost + order.warehouse_loads[warehouse.id] / dock.efficiency  # TODO 加权
+                processing_time = fixed_cost + next((load['load'] for load in order.warehouse_loads if load['warehouse_id'] == warehouse.id), 0) / dock.efficiency
+                # TODO 加权
                 model += end_times[order.id, warehouse.id, dock.id] == start_times[
                     order.id, warehouse.id, dock.id] + processing_time
                 model += end_times[order.id, warehouse.id, dock.id] <= latest_end_time  # 最迟完成时间
@@ -154,7 +156,9 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
     # 【约束】订单作业窗口不与已存在的忙碌时间窗口重叠
     for order in orders:
         for warehouse in warehouses:
-            if order.warehouse_loads[warehouse.id] > 0:
+            load_for_warehouse = next(
+                (load['load'] for load in order.warehouse_loads if load['warehouse_id'] == warehouse.id), 0)
+            if load_for_warehouse > 0:
                 dock_id = order_dock_assignments[order.id][warehouse.id]
                 dock_key = (warehouse.id, dock_id)
                 existing_windows = busy_windows.get(dock_key, [])

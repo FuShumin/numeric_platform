@@ -91,12 +91,23 @@ def external_orders_queueing():
     loading_model = create_lp_model(loading_orders, loading_warehouses)
     loading_model.solve()
     loading_var_dicts = loading_model.variablesDict()
-    order_dock_assignments, latest_completion_time = parse_optimization_result(loading_model, orders, warehouses)
-    print("Order Dock Assignments:", order_dock_assignments)
-    print("Latest Completion Time:", latest_completion_time)
+    loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model, orders, warehouses)
+    print("Order Dock Assignments:", loading_order_dock_assignments)
+    print("Latest Completion Time:", loading_latest_completion_time)
     # SECTION 3.5 对装车订单二阶段排队规划
-    queue_model = create_queue_model(orders, warehouses, order_dock_assignments, loading_order_routes)
+    queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments, loading_order_routes)
     queue_model.solve()
+
+    start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
+    # 显示排队结果
+    print("Start Times:", start_times)
+    print("End Times:", end_times)
+    # SECTION 3.8 数据持久化
+    plot_order_times_on_docks(start_times, end_times, loading_warehouses)
+    schedule = generate_schedule(start_times, end_times)
+    # 保存时间表到文件
+    filename = "local_schedule.csv"
+    save_schedule_to_file(schedule, filename)
 
     return jsonify({"message": "Algorithm 1 processed the data"})
 
