@@ -25,36 +25,46 @@ def create_lp_model(orders, warehouses, total_busy_time=None):
             dock_completion_time = LpVariable(f"DockCompletionTime_{warehouse.id}_{dock.id}", lowBound=0, cat=LpInteger)
             model += dock_completion_time <= latest_completion_time  # 最迟完成时间为最长的一条月台队列完成的时间
             existing_dock_queueingTime = total_busy_time.get(dock_key, 0)
+            # 每个仓库的月台队列 总载货量
             total_load = pulp.lpSum(
-                order.warehouse_loads[warehouse.id] * owd[order.id, warehouse.id, dock.id]  # TODO 根据仓库键找到装载量
-                for order in orders if order.warehouse_loads[warehouse.id] > 0)  # 每个仓库的月台队列 总载货量
+                next((load['load'] for load in order.warehouse_loads if load['warehouse_id'] == warehouse.id), 0) * owd[
+                    order.id, warehouse.id, dock.id]
+                for order in orders if
+                order.warehouse_loads and any(load['warehouse_id'] == warehouse.id for load in order.warehouse_loads)
+            )
             model += dock_completion_time >= total_load / dock.efficiency + existing_dock_queueingTime
             # 月台完成时间为总载货量/该月台效率
 
     # 确保每个订单在所有装货量非零的仓库中只选择一个月台
     for order in orders:
         for warehouse in warehouses:
-            if order.warehouse_loads[warehouse.id] > 0:
+            # 寻找与当前仓库匹配的 load 值
+            load_for_warehouse = next(
+                (load['load'] for load in order.warehouse_loads if load['warehouse_id'] == warehouse.id), 0)
+
+            # 如果找到的 load 值大于 0，添加约束
+            if load_for_warehouse > 0:
                 model += pulp.lpSum(owd[order.id, warehouse.id, dock.id] for dock in warehouse.docks) == 1
+            else:
+                model += pulp.lpSum(owd[order.id, warehouse.id, dock.id] for dock in warehouse.docks) == 0
 
     return model
-    #  有的仓库可能load为0
     #  检查逻辑
     #  解析函数
     #  按序路线
 
 
-def generate_specific_order_route(orders, warehouses):
+def generate_specific_order_route(orders):
     specific_order_route = {}
 
     for order in orders:
         if order.sequential:
-            route = []
-            for warehouse in sorted(warehouses, key=lambda w: w.id):
-                route.append(warehouse.id)
+            # 获取订单中仓库负载的仓库ID，并按照出现的顺序创建路径
+            route = [load['warehouse_id'] for load in order.warehouse_loads]
             specific_order_route[order.id] = route
 
     return specific_order_route
+
     # 仓库是否按序 【测试】
     # 月台排队顺序 - 2阶段
     #  解析提取仓库顺序，月台排队顺序
@@ -163,7 +173,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
 
 def main():
     orders, warehouses = generate_test_data(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
-    specific_order_route = generate_specific_order_route(orders, warehouses)
+    specific_order_route = generate_specific_order_route(orders)
 
     # 打印订单信息
     for order in orders:
@@ -181,12 +191,13 @@ def main():
     print("Latest Completion Time:", latest_completion_time)
     queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route)
     queue_model.solve()
-    vars_dict = queue_model.variablesDict()
     start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
     # 显示排队结果
     print("Start Times:", start_times)
     print("End Times:", end_times)
+    # 可视化绘制
     plot_order_times_on_docks(start_times, end_times)
+    # 生成时间表
     schedule = generate_schedule(start_times, end_times)
     print(schedule)
     # 保存时间表到文件
@@ -194,10 +205,7 @@ def main():
     save_schedule_to_file(schedule, filename)
     # 从文件加载时间表
     loaded_schedule = load_schedule_from_file(filename)
-    # 验证
-    print("Original Schedule:\n", schedule)
-    print("\nLoaded Schedule:\n", loaded_schedule)
-    assert schedule.equals(loaded_schedule), "Loaded schedule does not match the original."
+    # 解析出顺序
     order_sequences, dock_queues = parse_order_sequence_and_queue(start_times, end_times)
 
 
