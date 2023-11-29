@@ -14,7 +14,7 @@ class Order:
         self.order_type = order_type
 
     def __str__(self):
-        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority}, Carriage: {self.required_carriage}, Type: {self.order_type})"
+        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority}, Carriage: {self.required_carriage}, Type: {self.order_type}, Sequential:{self.sequential})"
 
 
 class Dock:
@@ -28,9 +28,9 @@ class Dock:
         self.compatible_carriage = compatible_carriage
 
     def set_efficiency(self, order_type):
-        if order_type == "装车":
+        if order_type == "装车" or self.dock_type == "通用":
             self.efficiency = self.outbound_efficiency
-        elif order_type == "卸车":
+        elif order_type == "卸车" or self.dock_type == "通用":
             self.efficiency = self.inbound_efficiency
 
     def __str__(self):

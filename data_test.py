@@ -113,7 +113,7 @@ for order in orders:
             dock.set_efficiency(order.order_type)
             print(f"Order {order.id}, Dock {dock.id}, Efficiency: {dock.efficiency}")
 
-test_data = generate_test_data_as_dict(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
+test_data = generate_test_data_as_dict(num_orders=3, num_docks_per_warehouse=2, num_warehouses=2)
 
 # 测试数据现在是一个字典格式，可以直接用于 Web 应用
 print(test_data)
