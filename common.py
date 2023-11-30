@@ -254,7 +254,7 @@ def calculate_busy_times_and_windows(loaded_schedule, warehouses):
 
     :param loaded_schedule: 包含日程表数据的DataFrame。
     :param warehouses: 仓库对象列表。
-    :return: 两个字典组成的元组 - 一个是每个装卸口的总繁忙时间，另一个是繁忙时间窗口。
+    :return: 两部字典组成的元组 - 一个是每个装卸口的总繁忙时间，另一个是繁忙时间窗口。
     """
     total_busy_time = {}
     busy_windows = {}
