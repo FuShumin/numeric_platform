@@ -91,19 +91,22 @@ def external_orders_queueing():
     # 读取已有时间表
     filename = "local_schedule.csv"
     loaded_schedule = load_and_prepare_schedule(filename)
-    existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
+    existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, loading_warehouses)
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
     loading_model.solve()
     loading_var_dicts = loading_model.variablesDict()
-    loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model, orders, warehouses)
+    loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model, orders,
+                                                                                               warehouses)
     print("Order Dock Assignments:", loading_order_dock_assignments)
     print("Latest Completion Time:", loading_latest_completion_time)
     # SECTION 3.5 对装车订单二阶段排队规划
-    loading_queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments, loading_order_routes, busy_slots)
+    loading_queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments,
+                                             loading_order_routes, busy_slots)
     loading_queue_model.solve()
 
-    loading_start_times, loading_end_times = parse_queue_results(loading_queue_model, loading_orders, loading_warehouses)
+    loading_start_times, loading_end_times = parse_queue_results(loading_queue_model, loading_orders,
+                                                                 loading_warehouses)
     # 显示排队结果
     print("Start Times:", loading_start_times)
     print("End Times:", loading_end_times)
@@ -119,21 +122,30 @@ def external_orders_queueing():
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
     unloading_model.solve()
-    unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model, unloading_orders, unloading_warehouses)
+    unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model,
+                                                                                                   unloading_orders,
+                                                                                                   unloading_warehouses)
 
-    unloading_queue_model = create_queue_model(unloading_orders, unloading_warehouses, unloading_order_dock_assignments, unloading_order_routes, busy_slots)
+    unloading_queue_model = create_queue_model(unloading_orders, unloading_warehouses, unloading_order_dock_assignments,
+                                               unloading_order_routes, busy_slots)
     unloading_queue_model.solve()
-    unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders, unloading_warehouses)
+    unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders,
+                                                                     unloading_warehouses)
     plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
 
     unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times)
     save_schedule_to_file(unloading_schedule, filename)
 
     # SECTION 5 提取全部订单结果，解析成出参格式
-    schedule = pd.concat([loading_schedule, unloading_schedule], ignore_index=True)
-    parsed_result = parse_schedule(schedule)
-    return jsonify({"status": "success", "data": parsed_result})
+    try:
+        schedule = pd.concat([loading_schedule, unloading_schedule], ignore_index=True)
+        parsed_result = parse_schedule(schedule)
+        return jsonify({"code": 0, "message": "处理成功。", "data": parsed_result})
 
+    except Exception as e:
+        print(e)
+        # 返回错误信息
+        return jsonify({"code": 1, "message": "处理过程中发生错误。"}), 500
 
 
 @app.route('/internal_orders_queueing', methods=['POST'])
