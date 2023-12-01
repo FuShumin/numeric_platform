@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import numpy as np
-import matplotlib.colors as mcolors
 
 
 def plot_order_times_on_docks(start_times, end_times, warehouses, busy_windows=None):

@@ -12,9 +12,9 @@ def parse_schedule(schedule):
 
     # 解析订单的仓库路线和月台分配
     for _, row in schedule.iterrows():
-        order_id = int(row['Order ID'])  # 确保使用数字
-        warehouse_id = int(row['Warehouse ID'])  # 确保使用数字
-        dock_id = int(row['Dock ID'])  # 确保使用数字
+        order_id = int(row['Order ID'])  # 确保使用整数
+        warehouse_id = int(row['Warehouse ID'])
+        dock_id = int(row['Dock ID'])
 
         # 更新订单的仓库路线
         if order_id not in order_sequences:
@@ -35,7 +35,7 @@ def parse_schedule(schedule):
 
         queue_item = {
             "position": len(docks_queues[dock_key]["queue"]) + 1,
-            "order_id": int(row['Order ID']),  # 确保使用数字
+            "order_id": int(row['Order ID']),
             "start_time": str(row['Start Time']),
             "end_time": str(row['End Time'])
         }
@@ -237,6 +237,7 @@ def set_efficiency_for_docks(parsed_orders):
 
     return parsed_orders
 
+
 def find_earliest_and_efficient_dock(order_info, loaded_schedule):
     earliest_time = float('inf')
     highest_efficiency = 0
@@ -261,7 +262,8 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
 
     return selected_dock_id
 
-def calculate_lay_time(order_info, loaded_schedule):
+
+def calculate_lay_time(order_info):
     selected_dock_id = order_info.get("selected_dock_id")
     if selected_dock_id is None:
         return None  # 如果没有选择月台，则无法计算 lay_time
@@ -273,8 +275,9 @@ def calculate_lay_time(order_info, loaded_schedule):
 
     # 计算 lay_time
     load = order_info.get("load", 0)
-    lay_time = load / selected_dock.efficiency    # TODO 缺少权重参与
+    lay_time = load / selected_dock.efficiency  # TODO 缺少权重参与
     return lay_time
+
 
 def generate_schedule_from_orders(parsed_orders):
     start_times = {}
