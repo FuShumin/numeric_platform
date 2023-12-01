@@ -209,8 +209,6 @@ def main():
     save_schedule_to_file(schedule, filename)
     # 从文件加载时间表
     loaded_schedule = load_schedule_from_file(filename)
-    # 解析出顺序
-    order_sequences, dock_queues = parse_order_sequence_and_queue(start_times, end_times)
 
 
 if __name__ == "__main__":
