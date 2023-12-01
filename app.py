@@ -132,7 +132,7 @@ def external_orders_queueing():
     unloading_queue_model.solve()
     unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders,
                                                                      unloading_warehouses)
-    plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
+    # plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
 
     unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times)
     save_schedule_to_file(unloading_schedule, filename)
@@ -268,7 +268,7 @@ def internal_orders_queueing():
     print("Start Times:", loading_start_times)
     print("End Times:", loading_end_times)
     # SECTION 3.8 数据持久化
-    plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
+    # plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
     loading_schedule = generate_schedule(loading_start_times, loading_end_times)
     # 保存时间表到文件
     save_schedule_to_file(loading_schedule, filename)
@@ -289,7 +289,7 @@ def internal_orders_queueing():
     unloading_queue_model.solve()
     unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders,
                                                                      unloading_warehouses)
-    plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
+    # plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
 
     unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times)
     save_schedule_to_file(unloading_schedule, filename)
@@ -300,6 +300,7 @@ def internal_orders_queueing():
         parsed_result = parse_schedule(schedule)
         parsed_internal_result = parse_internal_schedule(schedule)
         internal_result = assign_carriages_to_orders(parsed_internal_result, carriages, warehouses, vehicles, orders)
+        internal_result = [entry for entry in internal_result if entry['carriage_id'] is not None]
         return jsonify({"code": 0,
                         "message": "处理成功。",
                         "data": {
@@ -334,7 +335,7 @@ def drop_pull_scheduling():
             selected_dock_id = find_earliest_and_efficient_dock(order_info, loaded_schedule)
             # 更新 order_info 以包含选定的月台 ID
             order_info["selected_dock_id"] = selected_dock_id
-            lay_time = calculate_lay_time(order_info, loaded_schedule)
+            lay_time = calculate_lay_time(order_info)
             order_info["lay_time"] = lay_time
 
             # SECTION 匹配车辆
