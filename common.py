@@ -171,13 +171,17 @@ def save_schedule_to_file(schedule, filename="test_schedule.csv"):
     updated_schedule.to_csv(filename, index=False)
 
 
-def load_and_prepare_schedule(filename):
+def load_and_prepare_schedule(filename, orders):
     """
     加载调度文件，并准备数据以便后续处理。
 
     :param filename: 调度数据的文件名。
     :return: 准备好的 DataFrame。
     """
+
+    def get_order_ids_from_orders(orders):
+        return [order.id for order in orders]
+
     try:
         loaded_schedule = pd.read_csv(filename)
 
@@ -195,6 +199,10 @@ def load_and_prepare_schedule(filename):
 
         # 检查负数的 start_time 设为 0
         loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(lambda x: max(x, 0))
+        # 获取 orders 中的订单 ID 列表
+        order_ids = get_order_ids_from_orders(orders)
+        # 筛选掉已在 orders 中的订单
+        loaded_schedule = loaded_schedule[~loaded_schedule['Order ID'].isin(order_ids)]
 
         return loaded_schedule
 
@@ -211,25 +219,29 @@ def generate_schedule(start_times, end_times):
     :param end_times: 结束时间的字典，键是（订单ID，仓库ID，装卸口ID）。
     :return: 包含日程表信息的DataFrame。
     """
-    schedule_data = []
+    # 如果输入为空，则返回空的DataFrame
+    if not start_times and not end_times:
+        return pd.DataFrame(columns=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"])
+    else:
+        schedule_data = []
 
-    for key in start_times.keys():
-        order_id, warehouse_id, dock_id = key
-        start = start_times[key]
-        end = end_times[key]
-        schedule_data.append({
-            "Order ID": order_id,
-            "Warehouse ID": warehouse_id,
-            "Dock ID": dock_id,
-            "Start Time": start,
-            "End Time": end
-        })
+        for key in start_times.keys():
+            order_id, warehouse_id, dock_id = key
+            start = start_times[key]
+            end = end_times[key]
+            schedule_data.append({
+                "Order ID": order_id,
+                "Warehouse ID": warehouse_id,
+                "Dock ID": dock_id,
+                "Start Time": start,
+                "End Time": end
+            })
 
-    # 字典列表转化为 DataFrame
-    schedule_df = pd.DataFrame(schedule_data)
-    # 应用时间格式转换
-    schedule_df['Start Time'] = schedule_df['Start Time'].apply(convert_to_readable_format)
-    schedule_df['End Time'] = schedule_df['End Time'].apply(convert_to_readable_format)
+        # 字典列表转化为 DataFrame
+        schedule_df = pd.DataFrame(schedule_data)
+        # 应用时间格式转换
+        schedule_df['Start Time'] = schedule_df['Start Time'].apply(convert_to_readable_format)
+        schedule_df['End Time'] = schedule_df['End Time'].apply(convert_to_readable_format)
     return schedule_df
 
 

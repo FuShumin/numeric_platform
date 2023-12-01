@@ -90,7 +90,7 @@ def external_orders_queueing():
     # SECTION 3 对装车订单进行一阶段线性规划
     # 读取已有时间表
     filename = "local_schedule.csv"
-    loaded_schedule = load_and_prepare_schedule(filename)
+    loaded_schedule = load_and_prepare_schedule(filename, loading_orders)
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, loading_warehouses)
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
@@ -111,13 +111,14 @@ def external_orders_queueing():
     print("Start Times:", loading_start_times)
     print("End Times:", loading_end_times)
     # SECTION 3.8 数据持久化
-    plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
+    # plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
+
     loading_schedule = generate_schedule(loading_start_times, loading_end_times)
     # 保存时间表到文件
     save_schedule_to_file(loading_schedule, filename)
     # SECTION 4 卸车订单的处理, 同上
     # 查找每个月台已占用的忙碌时间窗口
-    loaded_schedule = load_and_prepare_schedule(filename)
+    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders)
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
@@ -246,7 +247,7 @@ def internal_orders_queueing():
     # SECTION 3 对装车订单进行一阶段线性规划
     # 读取已有时间表
     filename = "internal_schedule.csv"
-    loaded_schedule = load_and_prepare_schedule(filename)
+    loaded_schedule = load_and_prepare_schedule(filename, loading_orders)
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, loading_warehouses)
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
@@ -273,7 +274,7 @@ def internal_orders_queueing():
     save_schedule_to_file(loading_schedule, filename)
     # SECTION 4 卸车订单的处理, 同上
     # 查找每个月台已占用的忙碌时间窗口
-    loaded_schedule = load_and_prepare_schedule(filename)
+    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders)
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
@@ -316,9 +317,11 @@ def internal_orders_queueing():
 def drop_pull_scheduling():
     data = request.json  # 获取 JSON 格式的数据
     filename = "DropPull_schedule.csv"
-    loaded_schedule = load_and_prepare_schedule(filename)
+
     try:
         parsed_orders = parse_order_carriage_info(data)
+        orders = [order_info['order'] for order_info in parsed_orders]
+        loaded_schedule = load_and_prepare_schedule(filename, orders)
         vehicles = [Vehicle(**v) for v in data['vehicles']]
         vehicle_dock_assignments = []
         # 打印解析结果
