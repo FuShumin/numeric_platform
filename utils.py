@@ -108,7 +108,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 def find_closest_vehicle(carriage_location, vehicles):
     """根据车辆的位置和工作负载找到最合适的车辆"""
-    # 过滤出空闲的车辆
+    # 过滤出状态为空闲的车辆
     available_vehicles = [v for v in vehicles if v.state == 0]
 
     if not available_vehicles:
@@ -273,7 +273,7 @@ def calculate_lay_time(order_info, loaded_schedule):
 
     # 计算 lay_time
     load = order_info.get("load", 0)
-    lay_time = load / selected_dock.efficiency
+    lay_time = load / selected_dock.efficiency    # TODO 缺少权重参与
     return lay_time
 
 def generate_schedule_from_orders(parsed_orders):
