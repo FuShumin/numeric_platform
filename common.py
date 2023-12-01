@@ -7,14 +7,14 @@ from datetime import datetime, timedelta
 class Order:
     def __init__(self, order_id, warehouse_loads, priority, sequential, required_carriage, order_type):
         self.id = order_id
-        self.warehouse_loads = warehouse_loads  # 字典，键为仓库 ID，值为负载
+        self.warehouse_loads = warehouse_loads  # 列表，包含字典，每部字典有仓库 ID 和负载信息
         self.priority = priority
         self.sequential = sequential
         self.required_carriage = required_carriage
         self.order_type = order_type
 
     def __str__(self):
-        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority}, Carriage: {self.required_carriage}, Type: {self.order_type}, Sequential:{self.sequential})"
+        return f"Order(ID: {self.id}, Load: {self.warehouse_loads}, Priority:{self.priority}, Required Carriage: {self.required_carriage}, Type: {self.order_type}, Sequential:{self.sequential})"
 
 
 class Dock:
@@ -28,9 +28,9 @@ class Dock:
         self.compatible_carriage = compatible_carriage
 
     def set_efficiency(self, order_type):
-        if order_type == "装车" or self.dock_type == "通用":
+        if order_type == 2 or self.dock_type == 3:
             self.efficiency = self.outbound_efficiency
-        elif order_type == "卸车" or self.dock_type == "通用":
+        elif order_type == 1 or self.dock_type == 3:
             self.efficiency = self.inbound_efficiency
 
     def __str__(self):
@@ -41,12 +41,39 @@ class Dock:
 #     dock.set_efficiency(order_type)
 
 class Warehouse:
-    def __init__(self, warehouse_id, docks):
+    def __init__(self, warehouse_id, docks, location=None):
         self.id = warehouse_id
         self.docks = docks
+        self.location = location
 
     def __str__(self):
-        return f"Warehouse(ID: {self.id}, Docks: {[str(dock) for dock in self.docks]})"
+        return f"Warehouse(ID: {self.id}, Docks: {[str(dock) for dock in self.docks]}, Location:{self.location})"
+
+
+class Carriage:
+    def __init__(self, carriage_id, location, carriage_type, carriage_state, current_dock_id, current_warehouse_id=None):
+        self.id = carriage_id
+        self.location = location
+        self.type = carriage_type
+        self.state = carriage_state
+        self.current_dock_id = current_dock_id
+        self.current_warehouse_id = current_warehouse_id
+
+    def __str__(self):
+        return (f"Carriage(ID: {self.id}, Location: {self.location}, Type: {self.type}, "
+                f"State: {self.state}, Current Dock ID: {self.current_dock_id}, Current Warehouse ID: {self.current_warehouse_id})")
+
+
+class Vehicle:
+    def __init__(self, vehicle_id, location, vehicle_state, vehicle_workload):
+        self.id = vehicle_id
+        self.location = location
+        self.state = vehicle_state
+        self.workload = vehicle_workload
+
+    def __str__(self):
+        return (f"Vehicle(ID: {self.id}, Location: {self.location}, State: {self.state}, "
+                f"Workload: {self.workload})")
 
 
 def parse_queue_results(model, orders, warehouses):
@@ -109,34 +136,6 @@ def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
               for i in range(num_orders)]
 
     return orders, warehouses
-
-
-def parse_order_sequence_and_queue(start_times, end_times):
-    # 初始化存储结构
-    order_sequences = {}
-    dock_queues = {}
-
-    # 解析每个订单的仓库顺序
-    for (order_id, warehouse_id, dock_id), start_time in start_times.items():
-        if order_id not in order_sequences:
-            order_sequences[order_id] = []
-        order_sequences[order_id].append((warehouse_id, start_time, end_times[(order_id, warehouse_id, dock_id)]))
-
-    # 对每个订单的仓库访问顺序按开始时间进行排序
-    for order_id in order_sequences:
-        order_sequences[order_id].sort(key=lambda x: x[1])
-
-    # 解析每个月台的排队顺序
-    for (order_id, warehouse_id, dock_id), start_time in start_times.items():
-        if dock_id not in dock_queues:
-            dock_queues[dock_id] = []
-        dock_queues[dock_id].append((order_id, start_time, end_times[(order_id, warehouse_id, dock_id)]))
-
-    # 对每个月台的排队顺序按开始时间进行排序
-    for dock_id in dock_queues:
-        dock_queues[dock_id].sort(key=lambda x: x[1])
-
-    return order_sequences, dock_queues
 
 
 def save_schedule_to_file(schedule, filename="test_schedule.csv"):
