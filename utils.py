@@ -243,7 +243,13 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
     highest_efficiency = 0
     selected_dock_id = None
 
+    required_carriage = order_info['order'].required_carriage  # 获取订单所需的车型
+
     for dock in order_info["warehouse"].docks:
+        # 检查月台是否兼容订单所需的车型
+        if required_carriage not in dock.compatible_carriage:
+            continue  # 如果不兼容，则跳过此月台
+
         # 查找该月台在调度表中的所有条目
         dock_schedule = loaded_schedule[loaded_schedule['Dock ID'] == dock.id]
 
@@ -261,6 +267,7 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
             selected_dock_id = dock.id
 
     return selected_dock_id
+
 
 
 def calculate_lay_time(order_info):

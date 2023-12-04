@@ -95,6 +95,7 @@ def external_orders_queueing():
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
     loading_model.solve()
+    # TODO when problem is infeasible，raise error/logs
     loading_var_dicts = loading_model.variablesDict()
     loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model, orders,
                                                                                                warehouses)
@@ -104,7 +105,7 @@ def external_orders_queueing():
     loading_queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments,
                                              loading_order_routes, busy_slots)
     loading_queue_model.solve()
-
+    # TODO when problem is infeasible，raise error/logs
     loading_start_times, loading_end_times = parse_queue_results(loading_queue_model, loading_orders,
                                                                  loading_warehouses)
     # 显示排队结果
@@ -132,6 +133,7 @@ def external_orders_queueing():
     unloading_queue_model = create_queue_model(unloading_orders, unloading_warehouses, unloading_order_dock_assignments,
                                                unloading_order_routes, busy_slots)
     unloading_queue_model.solve()
+    # TODO when problem is infeasible，raise error/logs
     unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders,
                                                                      unloading_warehouses)
     # plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
@@ -254,6 +256,7 @@ def internal_orders_queueing():
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
     loading_model.solve()
+    # TODO when problem is infeasible，raise error/logs
     loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model,
                                                                                                orders,
                                                                                                warehouses)
@@ -263,7 +266,7 @@ def internal_orders_queueing():
     loading_queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments,
                                              loading_order_routes, busy_slots)
     loading_queue_model.solve()
-
+    # TODO when problem is infeasible，raise error/logs
     loading_start_times, loading_end_times = parse_queue_results(loading_queue_model, loading_orders,
                                                                  loading_warehouses)
     # 显示排队结果
@@ -281,6 +284,7 @@ def internal_orders_queueing():
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
     unloading_model.solve()
+    # TODO when problem is infeasible，raise error/logs
     unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model,
                                                                                                    unloading_orders,
                                                                                                    unloading_warehouses)
@@ -289,6 +293,7 @@ def internal_orders_queueing():
                                                unloading_order_dock_assignments,
                                                unloading_order_routes, busy_slots)
     unloading_queue_model.solve()
+    # TODO when problem is infeasible，raise error/logs
     unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders,
                                                                      unloading_warehouses)
     # plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
