@@ -12,6 +12,10 @@ def create_lp_model(orders, warehouses, total_busy_time=None):
                            [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
                            cat='Binary')
 
+    # 对于每个订单和每个月台，创建一个表示兼容性的辅助变量
+    compatibility = LpVariable.dicts("Compatibility",
+                                      [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
+                                      cat='Binary')
     # 最迟完成时间变量
     latest_completion_time = LpVariable("Latest_Completion_Time", lowBound=0, cat=LpInteger)
 
@@ -47,6 +51,12 @@ def create_lp_model(orders, warehouses, total_busy_time=None):
                 model += pulp.lpSum(owd[order.id, warehouse.id, dock.id] for dock in warehouse.docks) == 1
             else:
                 model += pulp.lpSum(owd[order.id, warehouse.id, dock.id] for dock in warehouse.docks) == 0
+
+            for dock in warehouse.docks:
+                # 如果订单的车型在月台的兼容车型列表中，则设置兼容性变量为1，否则为0
+                compatibility[order.id, warehouse.id, dock.id] = 1 if order.required_carriage in dock.compatible_carriage else 0
+                # 添加约束：如果车型不兼容，则该订单不能分配到该月台
+                model += owd[order.id, warehouse.id, dock.id] <= compatibility[order.id, warehouse.id, dock.id]
 
     return model
     #  检查逻辑
@@ -102,7 +112,7 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
 
             for i in range(len(orders_in_dock)):
                 order = orders_in_dock[i]
-                processing_time = fixed_cost + next((load['load'] for load in order.warehouse_loads if load['warehouse_id'] == warehouse.id), 0) / dock.efficiency
+                processing_time = fixed_cost + next((load['load'] for load in order.warehouse_loads if load['warehouse_id'] == warehouse.id), 0) / (dock.efficiency+0.0000001)
                 # TODO 加权
                 model += end_times[order.id, warehouse.id, dock.id] == start_times[
                     order.id, warehouse.id, dock.id] + processing_time
