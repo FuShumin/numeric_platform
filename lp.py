@@ -12,10 +12,6 @@ def create_lp_model(orders, warehouses, total_busy_time=None):
                            [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
                            cat='Binary')
 
-    # 对于每个订单和每个月台，创建一个表示兼容性的辅助变量
-    compatibility = LpVariable.dicts("Compatibility",
-                                      [(o.id, w.id, d.id) for o in orders for w in warehouses for d in w.docks],
-                                      cat='Binary')
     # 最迟完成时间变量
     latest_completion_time = LpVariable("Latest_Completion_Time", lowBound=0, cat=LpInteger)
 
@@ -53,10 +49,8 @@ def create_lp_model(orders, warehouses, total_busy_time=None):
                 model += pulp.lpSum(owd[order.id, warehouse.id, dock.id] for dock in warehouse.docks) == 0
 
             for dock in warehouse.docks:
-                # 如果订单的车型在月台的兼容车型列表中，则设置兼容性变量为1，否则为0
-                compatibility[order.id, warehouse.id, dock.id] = 1 if order.required_carriage in dock.compatible_carriage else 0
-                # 添加约束：如果车型不兼容，则该订单不能分配到该月台
-                model += owd[order.id, warehouse.id, dock.id] <= compatibility[order.id, warehouse.id, dock.id]
+                if order.required_carriage not in dock.compatible_carriage:
+                    model += owd[order.id, warehouse.id, dock.id] == 0
 
     return model
     #  检查逻辑
