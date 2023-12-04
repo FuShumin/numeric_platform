@@ -123,6 +123,8 @@ def external_orders_queueing():
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
     unloading_model.solve()
+    # TODO when problem is infeasible，raise error/logs
+    var_dicts = unloading_model.variablesDict()
     unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model,
                                                                                                    unloading_orders,
                                                                                                    unloading_warehouses)
