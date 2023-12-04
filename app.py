@@ -114,7 +114,7 @@ def external_orders_queueing():
     # SECTION 3.8 数据持久化
     # plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
 
-    loading_schedule = generate_schedule(loading_start_times, loading_end_times)
+    loading_schedule = generate_schedule(loading_start_times, loading_end_times, "queue")
     # 保存时间表到文件
     save_schedule_to_file(loading_schedule, filename)
     # SECTION 4 卸车订单的处理, 同上
@@ -138,7 +138,7 @@ def external_orders_queueing():
                                                                      unloading_warehouses)
     # plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
 
-    unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times)
+    unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times, "queue")
     save_schedule_to_file(unloading_schedule, filename)
 
     # SECTION 5 提取全部订单结果，解析成出参格式
@@ -274,7 +274,7 @@ def internal_orders_queueing():
     print("End Times:", loading_end_times)
     # SECTION 3.8 数据持久化
     # plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
-    loading_schedule = generate_schedule(loading_start_times, loading_end_times)
+    loading_schedule = generate_schedule(loading_start_times, loading_end_times, "queue")
     # 保存时间表到文件
     save_schedule_to_file(loading_schedule, filename)
     # SECTION 4 卸车订单的处理, 同上
@@ -298,7 +298,7 @@ def internal_orders_queueing():
                                                                      unloading_warehouses)
     # plot_order_times_on_docks(unloading_start_times, unloading_end_times, busy_slots)
 
-    unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times)
+    unloading_schedule = generate_schedule(unloading_start_times, unloading_end_times, "queue")
     save_schedule_to_file(unloading_schedule, filename)
 
     # SECTION 5 提取全部订单结果，解析成出参格式
@@ -362,6 +362,9 @@ def drop_pull_scheduling():
                 "lay_time": order_info.get("lay_time")
             }
             vehicle_dock_assignments.append(assignment)
+
+        schedule = generate_schedule_from_orders(parsed_orders)
+        save_schedule_to_file(schedule, filename)
 
         return jsonify({
             "code": 0,

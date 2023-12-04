@@ -307,5 +307,5 @@ def generate_schedule_from_orders(parsed_orders):
             start_times[key] = start_time
             end_times[key] = end_time
 
-    schedule_df = generate_schedule(start_times, end_times)
+    schedule_df = generate_schedule(start_times, end_times, "drop")
     return schedule_df

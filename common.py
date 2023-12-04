@@ -211,10 +211,11 @@ def load_and_prepare_schedule(filename, orders):
         return pd.DataFrame(columns=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"])
 
 
-def generate_schedule(start_times, end_times):
+def generate_schedule(start_times, end_times, drop_or_queue):
     """
     从开始和结束时间生成一个日程表。
 
+    :param drop_or_queue: 判断是内外部车辆排队接口使用还是甩挂调度接口使用
     :param start_times: 开始时间的字典，键是（订单ID，仓库ID，装卸口ID）。
     :param end_times: 结束时间的字典，键是（订单ID，仓库ID，装卸口ID）。
     :return: 包含日程表信息的DataFrame。
@@ -240,8 +241,12 @@ def generate_schedule(start_times, end_times):
         # 字典列表转化为 DataFrame
         schedule_df = pd.DataFrame(schedule_data)
         # 应用时间格式转换
-        schedule_df['Start Time'] = schedule_df['Start Time'].apply(convert_to_readable_format)
-        schedule_df['End Time'] = schedule_df['End Time'].apply(convert_to_readable_format)
+        # schedule_df['Start Time'] = schedule_df['Start Time'].apply(convert_to_readable_format)
+        # schedule_df['End Time'] = schedule_df['End Time'].apply(convert_to_readable_format)
+        schedule_df['Start Time'] = schedule_df['Start Time'].apply(
+            lambda x: convert_to_readable_format(x, drop_or_queue))
+        schedule_df['End Time'] = schedule_df['End Time'].apply(
+            lambda x: convert_to_readable_format(x, drop_or_queue))
     return schedule_df
 
 
@@ -287,16 +292,20 @@ def calculate_busy_times_and_windows(loaded_schedule, warehouses):
     return total_busy_time, busy_windows
 
 
-def convert_to_readable_format(minutes):
+def convert_to_readable_format(minutes, drop_or_queue):
     """
     将从现在开始的分钟数转换为可读的日期时间格式。
 
+    :param drop_or_queue: 判断甩挂调度接口使用还是内外部车辆调度接口
     :param minutes: 当前时间起的分钟数。
     :return: 格式为'YYYY-MM-DD HH:MM:SS'的可读日期时间字符串。
     """
-    current_time = datetime.now()
-    future_time = current_time + timedelta(minutes=minutes)
-    return future_time.strftime('%Y-%m-%d %H:%M:%S')
+    if drop_or_queue == "queue":
+        current_time = datetime.now()
+        future_time = current_time + timedelta(minutes=minutes)
+        return future_time.strftime('%Y-%m-%d %H:%M:%S')
+    if drop_or_queue == "drop":
+        return minutes.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def convert_str_to_timestamp(time_str):
