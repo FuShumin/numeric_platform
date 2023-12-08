@@ -271,7 +271,6 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
     return selected_dock_id
 
 
-
 def calculate_lay_time(order_info):
     selected_dock_id = order_info.get("selected_dock_id")
     if selected_dock_id is None:
