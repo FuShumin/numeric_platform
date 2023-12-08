@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from common import *
 from lp import *
 from utils import *
-
+from pulp import PULP_CBC_CMD, LpStatus
 app = Flask(__name__)
 
 
@@ -94,7 +94,12 @@ def external_orders_queueing():
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, loading_warehouses)
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
-    loading_model.solve()
+    loading_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "loading_model", "-"*8)
+    print("Status:", LpStatus[loading_model.status])
+    print("Objective =", value(loading_model.objective))
+    print("="*10)
+
     # TODO when problem is infeasible，raise error/logs
     loading_var_dicts = loading_model.variablesDict()
     loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model, orders,
@@ -104,13 +109,15 @@ def external_orders_queueing():
     # SECTION 3.5 对装车订单二阶段排队规划
     loading_queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments,
                                              loading_order_routes, busy_slots)
-    loading_queue_model.solve()
+    loading_queue_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "loading_queue_model", "-"*8,)
+    print("Status:", LpStatus[loading_queue_model.status])
+    print("Objective =", value(loading_queue_model.objective))
+    print("="*10)
     # TODO when problem is infeasible，raise error/logs
     loading_start_times, loading_end_times = parse_queue_results(loading_queue_model, loading_orders,
                                                                  loading_warehouses)
-    # 显示排队结果
-    print("Start Times:", loading_start_times)
-    print("End Times:", loading_end_times)
+
     # SECTION 3.8 数据持久化
     # plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
 
@@ -123,7 +130,11 @@ def external_orders_queueing():
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
-    unloading_model.solve()
+    unloading_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "unloading_model", "-"*8,)
+    print("Status:", LpStatus[unloading_model.status])
+    print("Objective =", value(unloading_model.objective))
+    print("="*10)
     # TODO when problem is infeasible，raise error/logs
     var_dicts = unloading_model.variablesDict()
     unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model,
@@ -132,7 +143,11 @@ def external_orders_queueing():
 
     unloading_queue_model = create_queue_model(unloading_orders, unloading_warehouses, unloading_order_dock_assignments,
                                                unloading_order_routes, busy_slots)
-    unloading_queue_model.solve()
+    unloading_queue_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "unloading_queue_model", "-"*8,)
+    print("Status:", LpStatus[unloading_queue_model.status])
+    print("Objective =", value(unloading_queue_model.objective))
+    print("="*10)
     # TODO when problem is infeasible，raise error/logs
     unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders,
                                                                      unloading_warehouses)
@@ -255,7 +270,11 @@ def internal_orders_queueing():
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, loading_warehouses)
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
-    loading_model.solve()
+    loading_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "loading_model", "-"*8,)
+    print("Status:", LpStatus[loading_model.status])
+    print("Objective =", value(loading_model.objective))
+    print("="*10)
     # TODO when problem is infeasible，raise error/logs
     loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model,
                                                                                                orders,
@@ -265,13 +284,15 @@ def internal_orders_queueing():
     # SECTION 3.5 对装车订单二阶段排队规划
     loading_queue_model = create_queue_model(loading_orders, loading_warehouses, loading_order_dock_assignments,
                                              loading_order_routes, busy_slots)
-    loading_queue_model.solve()
+    loading_queue_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "loading_queue_model", "-"*8,)
+    print("Status:", LpStatus[loading_queue_model.status])
+    print("Objective =", value(loading_queue_model.objective))
+    print("="*10)
     # TODO when problem is infeasible，raise error/logs
     loading_start_times, loading_end_times = parse_queue_results(loading_queue_model, loading_orders,
                                                                  loading_warehouses)
-    # 显示排队结果
-    print("Start Times:", loading_start_times)
-    print("End Times:", loading_end_times)
+
     # SECTION 3.8 数据持久化
     # plot_order_times_on_docks(loading_start_times, loading_end_times, loading_warehouses, busy_slots)
     loading_schedule = generate_schedule(loading_start_times, loading_end_times, "queue")
@@ -283,7 +304,11 @@ def internal_orders_queueing():
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
-    unloading_model.solve()
+    unloading_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "unloading_model", "-"*8,)
+    print("Status:", LpStatus[unloading_model.status])
+    print("Objective =", value(unloading_model.objective))
+    print("="*10)
     # TODO when problem is infeasible，raise error/logs
     unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model,
                                                                                                    unloading_orders,
@@ -292,7 +317,11 @@ def internal_orders_queueing():
     unloading_queue_model = create_queue_model(unloading_orders, unloading_warehouses,
                                                unloading_order_dock_assignments,
                                                unloading_order_routes, busy_slots)
-    unloading_queue_model.solve()
+    unloading_queue_model.solve(solver=PULP_CBC_CMD(msg=False))
+    print("-"*8, "unloading_queue_model", "-"*8,)
+    print("Status:", LpStatus[unloading_queue_model.status])
+    print("Objective =", value(unloading_queue_model.objective))
+    print("="*10)
     # TODO when problem is infeasible，raise error/logs
     unloading_start_times, unloading_end_times = parse_queue_results(unloading_queue_model, unloading_orders,
                                                                      unloading_warehouses)
