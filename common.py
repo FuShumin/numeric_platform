@@ -7,7 +7,23 @@ from datetime import datetime, timedelta
 class Order:
     def __init__(self, order_id, warehouse_loads, priority, sequential, required_carriage, order_type):
         self.id = order_id
-        self.warehouse_loads = warehouse_loads  # 列表，包含字典，每部字典有仓库 ID 和负载信息 扩展item_code 以及内部订单类型
+        self.warehouse_loads = []
+        for wl in warehouse_loads:
+            if isinstance(wl, dict):
+                # 检查并提取需要的字段
+                warehouse_id = wl.get('warehouse_id')
+                cargo_type = wl.get('item_code', None)  # 使用 item_code 作为 cargo_type
+                quantity = wl.get('load', None)
+                operation = wl.get('loadUnloadStatus', None)  # 使用 loadUnloadStatus 作为 operation
+
+                # 如果字段完整，则创建 WarehouseLoad 对象
+                if all([warehouse_id is not None, quantity is not None, operation is not None]):
+                    self.warehouse_loads.append(WarehouseLoad(warehouse_id, cargo_type, quantity, operation))
+                else:
+                    # 否则，保持原样
+                    self.warehouse_loads.append(wl)
+            else:
+                self.warehouse_loads.append(wl)
         self.priority = priority
         self.sequential = sequential
         self.required_carriage = required_carriage
@@ -28,7 +44,7 @@ class Dock:
         self.compatible_carriage = compatible_carriage
 
     def set_efficiency(self, order_type):
-        if order_type == 2 or self.dock_type == 3:
+        if order_type == 2 or self.dock_type == 3:     # 2=月台出库，车辆装货, 1=月台入库，车辆卸货
             self.efficiency = self.outbound_efficiency
         elif order_type == 1 or self.dock_type == 3:
             self.efficiency = self.inbound_efficiency
@@ -37,8 +53,16 @@ class Dock:
         return f"Dock(ID: {self.id}, Outbound Efficiency: {self.outbound_efficiency}, Inbound Efficiency: {self.inbound_efficiency}, Efficiency: {self.efficiency}, Weight: {self.weight}, Type: {self.dock_type}, Compatible Carriage: {self.compatible_carriage})"
 
 
-# for dock in docks:
-#     dock.set_efficiency(order_type)
+class WarehouseLoad:
+    def __init__(self, warehouse_id, cargo_type, quantity, operation):
+        self.warehouse_id = warehouse_id
+        self.cargo_type = cargo_type
+        self.quantity = quantity
+        self.operation = operation  # 1='load' ；2 = 'unload'
+
+    def __repr__(self):
+        return f"WarehouseLoad({self.warehouse_id}, '{self.cargo_type}', {self.quantity}, '{self.operation}')"
+
 
 class Warehouse:
     def __init__(self, warehouse_id, docks, location=None):
@@ -51,7 +75,8 @@ class Warehouse:
 
 
 class Carriage:
-    def __init__(self, carriage_id, location, carriage_type, carriage_state, current_dock_id, current_warehouse_id=None):
+    def __init__(self, carriage_id, location, carriage_type, carriage_state, current_dock_id,
+                 current_warehouse_id=None):
         self.id = carriage_id
         self.location = location
         self.type = carriage_type
@@ -347,28 +372,7 @@ def convert_to_model_format(date_time_str):
 
 
 def main():
-    orders, warehouses = generate_test_data(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
-    schedule = generate_schedule(start_times, end_times)
-    filename = "test_schedule.csv"
-    save_schedule_to_file(schedule, filename)
-
-    loaded_schedule = load_and_prepare_schedule(filename)
-
-    # 查找每个月台已占用的忙碌时间窗口
-    existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
-
-    model = create_lp_model(orders, warehouses, existing_busy_time)
-    model.solve()
-
-    order_dock_assignments, latest_completion_time = parse_optimization_result(model, orders, warehouses)
-    queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route, busy_slots)
-    queue_model.solve()
-    start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
-    plot_order_times_on_docks(start_times, end_times, busy_slots)
-    schedule_new = generate_schedule(start_times, end_times)
-    schedule_new['Start Time'] = schedule_new['Start Time'].apply(convert_to_readable_format)
-    schedule_new['End Time'] = schedule_new['End Time'].apply(convert_to_readable_format)
-    save_schedule_to_file(schedule_new, "test_schedule.csv")
+    pass
 
 
 if __name__ == "__main__":

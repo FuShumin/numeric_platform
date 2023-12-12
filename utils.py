@@ -1,8 +1,8 @@
-from common import Warehouse, Dock, Order, Carriage
+from common import Warehouse, Dock, Order, Carriage, WarehouseLoad, generate_schedule
 import pandas as pd
 import math
-from common import generate_schedule
 from datetime import datetime, timedelta
+import copy
 
 
 def parse_schedule(schedule):
@@ -206,6 +206,7 @@ def parse_order_carriage_info(data):
         # 添加 perform_vehicle_matching
         perform_vehicle_matching = info.get('perform_vehicle_matching', True)
         perform_dock_matching = info.get('perform_dock_matching', True)
+        add_cx_task = info.get('add_cx_task', True)
         load = info.get('load', 0)
         # 将解析后的对象添加到列表
         parsed_orders.append({
@@ -215,6 +216,7 @@ def parse_order_carriage_info(data):
             "perform_vehicle_matching": perform_vehicle_matching,
             "load": load,
             "perform_dock_matching": perform_dock_matching,
+            "add_cx_task": add_cx_task,
         })
 
     return parsed_orders
@@ -310,3 +312,95 @@ def generate_schedule_from_orders(parsed_orders):
 
     schedule_df = generate_schedule(start_times, end_times, "drop")
     return schedule_df
+
+
+# 内部订单装货路线聚合仓库
+def generate_loading_route(cargo_operations):
+    loading_operations = [op for op in cargo_operations if op.operation == 1]
+    warehouse_aggregate = {}
+    for op in loading_operations:
+        if op.warehouse_id not in warehouse_aggregate:
+            warehouse_aggregate[op.warehouse_id] = []
+        warehouse_aggregate[op.warehouse_id].append(op)
+
+    optimized_loading_route = []
+    for warehouse_id in warehouse_aggregate:
+        # 可以在这里添加额外的优化逻辑
+        optimized_loading_route.extend(warehouse_aggregate[warehouse_id])
+
+    return optimized_loading_route
+
+
+def generate_unloading_route(cargo_operations, cargo_stack):
+    cargo_stack_copy = copy.deepcopy(cargo_stack)
+    unloading_route = []
+    unloading_operations = [op for op in cargo_operations if op.operation == 2]
+
+    for i in range(len(cargo_stack_copy) - 1, -1, -1):
+        stack_op = cargo_stack_copy[i]
+        for operation in unloading_operations:
+            # 从栈顶部（最后一个装载的货物）开始寻找匹配货物
+            if stack_op.cargo_type == operation.cargo_type and stack_op.quantity == operation.quantity:
+                # 卸载操作
+                unloading_route.append(
+                    WarehouseLoad(operation.warehouse_id, stack_op.cargo_type, operation.quantity, 2))
+                break
+
+    return unloading_route
+
+
+# 装货路线和卸货路线 去重
+def extract_unique_warehouse_ids(route):
+    seen_warehouses = set()
+    unique_warehouses = []
+    for operation in route:
+        if operation.warehouse_id not in seen_warehouses:
+            seen_warehouses.add(operation.warehouse_id)
+            unique_warehouses.append(operation.warehouse_id)
+    return unique_warehouses
+
+
+def parse_cargo_operations(order):
+    cargo_operations = []
+
+    for load in order.warehouse_loads:
+        # 提取需要的信息
+        warehouse_id = load.warehouse_id
+        item_code = load.cargo_type
+        quantity = load.quantity
+        operation = load.operation
+
+        # 创建 WarehouseLoad 对象并添加到列表
+        cargo_operations.append(WarehouseLoad(warehouse_id, item_code, quantity, operation))
+
+    return cargo_operations
+
+
+def main():
+    # 假设从输入提取出子任务列表如下 # TODO
+    cargo_operations = [
+        WarehouseLoad(1, 'A', 400, 'load'),
+        WarehouseLoad(2, 'B', 200, 'load'),
+        WarehouseLoad(1, 'C', 100, 'load'),
+
+        WarehouseLoad(3, 'A', 400, 'unload'),
+        WarehouseLoad(4, 'B', 200, 'unload'),
+        WarehouseLoad(3, 'C', 100, 'unload'),
+    ]
+    loading_route = generate_loading_route(cargo_operations)
+
+    # 创建装卸货堆栈
+    cargo_stack = []
+    for operation in loading_route:
+        if operation.operation == '1':
+            cargo_stack.append(operation)
+
+    unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
+
+    # 提取并去重仓库ID
+    unique_loading_ids = extract_unique_warehouse_ids(loading_route)
+    unique_unloading_ids = extract_unique_warehouse_ids(unloading_route)
+
+    # 合并装货和卸货路线的仓库ID
+    combined_warehouse_ids = unique_loading_ids + unique_unloading_ids
+
