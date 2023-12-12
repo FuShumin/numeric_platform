@@ -204,8 +204,8 @@ def parse_order_carriage_info(data):
         warehouse = Warehouse(info['next_warehouse']['warehouse_id'], docks)
 
         # 添加 perform_vehicle_matching
-        perform_vehicle_matching = info.get('perform_vehicle_matching', False)
-        is_last = info.get('is_last', False)
+        perform_vehicle_matching = info.get('perform_vehicle_matching', True)
+        perform_dock_matching = info.get('perform_dock_matching', True)
         load = info.get('load', 0)
         # 将解析后的对象添加到列表
         parsed_orders.append({
@@ -214,7 +214,7 @@ def parse_order_carriage_info(data):
             "warehouse": warehouse,
             "perform_vehicle_matching": perform_vehicle_matching,
             "load": load,
-            "is_last": is_last,
+            "perform_dock_matching": perform_dock_matching,
         })
 
     return parsed_orders

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 class Order:
     def __init__(self, order_id, warehouse_loads, priority, sequential, required_carriage, order_type):
         self.id = order_id
-        self.warehouse_loads = warehouse_loads  # 列表，包含字典，每部字典有仓库 ID 和负载信息
+        self.warehouse_loads = warehouse_loads  # 列表，包含字典，每部字典有仓库 ID 和负载信息 扩展item_code 以及内部订单类型
         self.priority = priority
         self.sequential = sequential
         self.required_carriage = required_carriage

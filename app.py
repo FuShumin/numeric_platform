@@ -364,50 +364,32 @@ def drop_pull_scheduling():
         # 打印解析结果
         set_efficiency_for_docks(parsed_orders)
         for order_info in parsed_orders:
-            if order_info.get('is_last'):
-                if order_info.get('perform_vehicle_matching'):
-                    carriage_location = order_info['carriage'].location
-                    closest_vehicle = find_closest_vehicle(carriage_location, vehicles)
-                    if closest_vehicle:
-                        order_info['matched_vehicle_id'] = closest_vehicle.id
-                        closest_vehicle.state = 1
-                    else:
-                        order_info['matched_vehicle_id'] = None
-                assignment = {
-                    "order_id": order_info["order"].id,
-                    "vehicle_id": order_info.get("matched_vehicle_id"),
-                    "warehouse_id": None,
-                    "dock_id": None,
-                    "lay_time": None,
-                    "is_last": order_info.get("is_last")
-                }
-                vehicle_dock_assignments.append(assignment)
-            else:
-                # 遍历 parsed_orders 并找到最早且效率最高的月台
+
+            if order_info.get('perform_dock_matching'):
                 selected_dock_id = find_earliest_and_efficient_dock(order_info, loaded_schedule)
                 # 更新 order_info 以包含选定的月台 ID
                 order_info["selected_dock_id"] = selected_dock_id
                 lay_time = calculate_lay_time(order_info)
                 order_info["lay_time"] = lay_time
 
-                # SECTION 匹配车辆
-                if order_info.get('perform_vehicle_matching'):
-                    carriage_location = order_info['carriage'].location
-                    closest_vehicle = find_closest_vehicle(carriage_location, vehicles)
-                    if closest_vehicle:
-                        order_info['matched_vehicle_id'] = closest_vehicle.id
-                        closest_vehicle.state = 1
-                    else:
-                        order_info['matched_vehicle_id'] = None
-                assignment = {
-                    "order_id": order_info["order"].id,
-                    "vehicle_id": order_info.get("matched_vehicle_id"),
-                    "warehouse_id": order_info["warehouse"].id,
-                    "dock_id": order_info.get("selected_dock_id"),
-                    "lay_time": order_info.get("lay_time"),
-                    "is_last": order_info.get("is_last")
-                }
-                vehicle_dock_assignments.append(assignment)
+            # SECTION 匹配车辆
+            if order_info.get('perform_vehicle_matching'):
+                carriage_location = order_info['carriage'].location
+                closest_vehicle = find_closest_vehicle(carriage_location, vehicles)
+                if closest_vehicle:
+                    order_info['matched_vehicle_id'] = closest_vehicle.id
+                    closest_vehicle.state = 1
+                else:
+                    order_info['matched_vehicle_id'] = None
+            assignment = {
+                "order_id": order_info["order"].id,
+                "vehicle_id": order_info.get("matched_vehicle_id"),
+                "warehouse_id": order_info["warehouse"].id,
+                "dock_id": order_info.get("selected_dock_id"),
+                "lay_time": order_info.get("lay_time"),
+                "is_last": order_info.get("is_last")
+            }
+            vehicle_dock_assignments.append(assignment)
 
         schedule = generate_schedule_from_orders(parsed_orders)
         save_schedule_to_file(schedule, filename)
