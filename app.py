@@ -387,7 +387,8 @@ def drop_pull_scheduling():
                 "warehouse_id": order_info["warehouse"].id,
                 "dock_id": order_info.get("selected_dock_id"),
                 "lay_time": order_info.get("lay_time"),
-                "is_last": order_info.get("is_last")
+                "perform_vehicle_matching": order_info.get("perform_vehicle_matching"),
+                "perform_dock_matching": order_info.get("perform_dock_matching")
             }
             vehicle_dock_assignments.append(assignment)
 
