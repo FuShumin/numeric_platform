@@ -142,43 +142,32 @@ def internal_orders_queueing():
     # 根据订单类型分别创建装车和卸车订单的列表
     loading_orders, unloading_orders = classify_orders(orders)
     # 创建两个新的仓库列表，分别用于装车和卸车任务
-    loading_warehouses = []
-    unloading_warehouses = []
-    # 遍历所有的仓库
-    for warehouse in warehouses:
-        # 为装车任务筛选月台
-        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
-        # 设置效率，并添加到装车仓库列表
-        for dock in loading_docks:
-            dock.set_efficiency(2)
-        if loading_docks:
-            loading_warehouses.append(Warehouse(warehouse.id, loading_docks))
+    loading_warehouses, unloading_warehouses = create_warehouses(warehouses)
 
-        # 为卸车任务筛选月台
-        unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
-        # 设置效率并添加到卸车仓库列表
-        for dock in unloading_docks:
-            dock.set_efficiency(1)
-        if unloading_docks:
-            unloading_warehouses.append(Warehouse(warehouse.id, unloading_docks))
-
-    # SECTION 内部入库单
-    if loading_orders:
-        order_sequences, carriage_vehicle_dock_assignments = process_loading_orders(loading_orders, warehouses,
-                                                                                    carriages)
-    # SECTION 内部出库单
-    elif unloading_orders:
-        order_sequences, carriage_vehicle_dock_assignments = process_unloading_orders(unloading_orders, warehouses,
-                                                                                      carriages, vehicles)
-
+    # 初始化变量
+    order_sequences = None
+    carriage_vehicle_dock_assignments = None
     try:
+        # SECTION 内部入库单
+        if loading_orders:
+            order_sequences, carriage_vehicle_dock_assignments = process_loading_orders(
+                loading_orders, loading_warehouses, carriages)
+        # SECTION 内部出库单
+        elif unloading_orders:
+            order_sequences, carriage_vehicle_dock_assignments = process_unloading_orders(
+                unloading_orders, unloading_warehouses, carriages, vehicles)
+
+        # 确保变量已被赋值
+        if order_sequences is None or carriage_vehicle_dock_assignments is None:
+            raise ValueError("未能成功生成订单序列或车辆装载分配。")
+
         response = create_response(order_sequences, carriage_vehicle_dock_assignments)
         return response
 
     except Exception as e:
         print(e)
         # 返回错误信息
-        return jsonify({"code": 1, "message": "处理过程中发生错误。"}), 500
+        return jsonify({"code": 1, "message": f"处理过程中发生错误：{e}。"}), 500
 
 
 @app.route('/drop_pull_scheduling', methods=['POST'])
