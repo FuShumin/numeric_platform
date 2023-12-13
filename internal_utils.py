@@ -213,3 +213,22 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         carriage_vehicle_dock_assignments.append(order_info)
 
     return order_sequences, carriage_vehicle_dock_assignments
+
+
+def create_warehouses(warehouses):
+    loading_warehouses = []
+    unloading_warehouses = []
+    for warehouse in warehouses:
+        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
+        for dock in loading_docks:
+            dock.set_efficiency(2)
+        if loading_docks:
+            loading_warehouses.append(Warehouse(warehouse.id, loading_docks, warehouse.location))
+
+        unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
+        for dock in unloading_docks:
+            dock.set_efficiency(1)
+        if unloading_docks:
+            unloading_warehouses.append(Warehouse(warehouse.id, unloading_docks, warehouse.location))
+
+    return loading_warehouses, unloading_warehouses
