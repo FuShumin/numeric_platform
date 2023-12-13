@@ -167,7 +167,7 @@ def internal_orders_queueing():
     except Exception as e:
         print(e)
         # 返回错误信息
-        return jsonify({"code": 1, "message": f"处理过程中发生错误：{e}。"}), 500
+        return jsonify({"code": 1, "message": f"处理过程中发生错误：{e}。"}), 400
 
 
 @app.route('/drop_pull_scheduling', methods=['POST'])
@@ -209,7 +209,8 @@ def drop_pull_scheduling():
                 "lay_time": order_info.get("lay_time"),
                 "perform_vehicle_matching": order_info.get("perform_vehicle_matching"),
                 "perform_dock_matching": order_info.get("perform_dock_matching"),
-                "add_cx_task": order_info.get("add_cx_task")
+                "add_cx_task": order_info.get("add_cx_task"),
+                "sort_no": order_info.get("sort_no")
             }
             vehicle_dock_assignments.append(assignment)
 
