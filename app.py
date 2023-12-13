@@ -1,9 +1,8 @@
 from flask import Flask, request, jsonify
-from common import *
 from lp import *
 from utils import *
 from pulp import PULP_CBC_CMD, LpStatus
-
+from internal_utils import *
 app = Flask(__name__)
 
 
@@ -16,13 +15,6 @@ def external_orders_queueing():
 
     # 解析订单数据
     orders = [Order(**o) for o in data['orders']]
-
-    # 打印仓库和订单数据用于验证
-    for warehouse in warehouses:
-        print(warehouse)
-
-    for order in orders:
-        print(order)
 
     # SECTION 1 划分装卸车任务类型
     # 根据订单类型分别创建装车和卸车订单的列表
@@ -50,43 +42,9 @@ def external_orders_queueing():
         if unloading_docks:
             unloading_warehouses.append(Warehouse(warehouse.id, unloading_docks))
 
-    # 打印装车订单
-    print("装车订单:")
-    for order in loading_orders:
-        print(
-            f"Order ID: {order.id}, Priority: {order.priority}, Sequential: {order.sequential}, Required Carriage: {order.required_carriage}, Order Type: {order.order_type}")
-
-    # 打印卸车订单
-    print("\n卸车订单:")
-    for order in unloading_orders:
-        print(
-            f"Order ID: {order.id}, Priority: {order.priority}, Sequential: {order.sequential}, Required Carriage: {order.required_carriage}, Order Type: {order.order_type}")
-
-    # 打印仓库信息
-    print("\n装车仓库, 月台:")
-    for warehouse in loading_warehouses:
-        print(f"Loading Warehouse ID: {warehouse.id}")
-        for dock in warehouse.docks:
-            print(f"  Dock ID: {dock.id}, Efficiency: {dock.efficiency}")
-
-    print("\n卸车仓库, 月台:")
-    for warehouse in unloading_warehouses:
-        print(f"Unloading Warehouse ID: {warehouse.id}")
-        for dock in warehouse.docks:
-            print(f"  Dock ID: {dock.id}, Efficiency: {dock.efficiency}")
-
     # SECTION 2 生成按序路径
     loading_order_routes = generate_specific_order_route(loading_orders)
     unloading_order_routes = generate_specific_order_route(unloading_orders)
-
-    # 打印路线
-    print("\n装车订单的特定路径:")
-    for order_id, route in loading_order_routes.items():
-        print(f"Order ID: {order_id}, Route: {route}")
-
-    print("\n卸车订单的特定路径:")
-    for order_id, route in unloading_order_routes.items():
-        print(f"Order ID: {order_id}, Route: {route}")
 
     # SECTION 3 对装车订单进行一阶段线性规划
     # 读取已有时间表
@@ -180,19 +138,9 @@ def external_orders_queueing():
 def internal_orders_queueing():
     data = request.json  # 获取 JSON 格式的数据
     # 解析仓库数据
-    warehouses = [Warehouse(w['warehouse_id'], [Dock(**d) for d in w['docks']], w.get('location', None)) for w in
-                  data['warehouses']]
-    # 解析订单数据
-    orders = [Order(**o) for o in data['orders']]
-    # 解析车辆数据
-    vehicles = [Vehicle(**v) for v in data['vehicles']]
-    # 解析车厢数据
-    carriages = [Carriage(**c) for c in data['carriages']]
-
-    # SECTION 1 划分装卸车任务类型
+    warehouses, orders, vehicles, carriages = parse_internal_data(data)
     # 根据订单类型分别创建装车和卸车订单的列表
-    loading_orders = [order for order in orders if order.order_type == 1]  # 1=内部出库单
-    unloading_orders = [order for order in orders if order.order_type == 2]  # 2=内部入库单
+    loading_orders, unloading_orders = classify_orders(orders)
     # 创建两个新的仓库列表，分别用于装车和卸车任务
     loading_warehouses = []
     unloading_warehouses = []
@@ -200,7 +148,7 @@ def internal_orders_queueing():
     for warehouse in warehouses:
         # 为装车任务筛选月台
         loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
-        # 设置效率并添加到装车仓库列表
+        # 设置效率，并添加到装车仓库列表
         for dock in loading_docks:
             dock.set_efficiency(2)
         if loading_docks:
@@ -216,120 +164,16 @@ def internal_orders_queueing():
 
     # SECTION 内部入库单
     if loading_orders:
-        order_sequences = {}
-        carriage_vehicle_dock_assignments = []
-        for order in loading_orders:
-            order_id = str(order.id)
-            cargo_operations = parse_cargo_operations(order)
-            loading_route = generate_loading_route(cargo_operations)
-
-            # 创建装卸货堆栈
-            cargo_stack = []
-            for operation in loading_route:
-                if operation.operation == 1:
-                    cargo_stack.append(operation)
-
-            unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
-
-            # 提取并去重仓库ID
-            unique_loading_ids = extract_unique_warehouse_ids(loading_route)
-            unique_unloading_ids = extract_unique_warehouse_ids(unloading_route)
-
-            # 合并装货和卸货路线的仓库ID
-            combined_warehouse_ids = unique_loading_ids + unique_unloading_ids
-            order_sequences[order_id] = combined_warehouse_ids
-            first_warehouse_id = combined_warehouse_ids[0]
-            first_warehouse = next((w for w in warehouses if w.id == first_warehouse_id), None)
-            warehouse_location = first_warehouse.location
-            closest_carriage = min(
-                (c for c in carriages if c.state == 0),
-                key=lambda c: haversine_distance(c.location['latitude'], c.location['longitude'],
-                                                 warehouse_location['latitude'], warehouse_location['longitude']),
-                default=None
-            )
-            if closest_carriage:
-                closest_carriage.state = 1
-            carriage_vehicle_dock_assignments.append({"order_id": order.id,
-                                                      "carriage_id": closest_carriage.id})
-
-
+        order_sequences, carriage_vehicle_dock_assignments = process_loading_orders(loading_orders, warehouses,
+                                                                                    carriages)
     # SECTION 内部出库单
     elif unloading_orders:
-        order_sequences = {}
-        carriage_vehicle_dock_assignments = []
-        for order in unloading_orders:
-            order_info = {}
-
-            order_id = str(order.id)
-            order_info["order_id"] = order.id
-            required_carriage = order.required_carriage
-            cargo_operations = parse_cargo_operations(order)
-            loading_route = generate_loading_route(cargo_operations)
-
-            # 创建装卸货堆栈
-            cargo_stack = []
-            for operation in loading_route:
-                if operation.operation == 1:
-                    cargo_stack.append(operation)
-
-            unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
-
-            # 提取并去重仓库ID
-            unique_loading_ids = extract_unique_warehouse_ids(loading_route)
-            unique_unloading_ids = extract_unique_warehouse_ids(unloading_route)
-
-            # 合并装货和卸货路线的仓库ID
-            combined_warehouse_ids = unique_loading_ids + unique_unloading_ids
-            order_sequences[order_id] = combined_warehouse_ids
-            first_warehouse_id = combined_warehouse_ids[0]
-            first_warehouse = next((w for w in warehouses if w.id == first_warehouse_id), None)
-            compatible_docks = [dock for dock in first_warehouse.docks if
-                                dock.dock_type == 2 and required_carriage in dock.compatible_carriage]
-            compatible_docks.sort(key=lambda x: (-x.outbound_efficiency, random.random()))
-            assigned_dock = compatible_docks[0]
-            assigned_dock_id = assigned_dock.id
-            order_info["dock_id"] = assigned_dock_id
-            warehouse_location = first_warehouse.location
-            # 判断月台是否已有符合条件的车厢
-            matching_carriage = next((c for c in carriages if c.current_dock_id == assigned_dock_id
-                                      and c.type == required_carriage
-                                      and c.state == 0), None)
-            if matching_carriage:
-                # 如果找到匹配的车厢，则分配该车厢并无须分配车辆
-                order_info["carriage_id"] = matching_carriage.id
-                # 更新车厢状态
-                matching_carriage.state = 1
-                order_info['vehicle_id'] = None
-            else:
-                # 如果没有找到匹配的车厢，根据距离寻找车厢
-                if warehouse_location:
-                    closest_carriage = min(
-                        (c for c in carriages if c.type == required_carriage and c.state == 0),
-                        key=lambda c: haversine_distance(c.location['latitude'], c.location['longitude'],
-                                                         warehouse_location['latitude'],
-                                                         warehouse_location['longitude']),
-                        default=None
-                    )
-                    if closest_carriage:
-                        order_info["carriage_id"] = closest_carriage.id
-                        closest_carriage.state = 1
-
-                        # 为车厢选择合适的车辆
-                        closest_vehicle = find_closest_vehicle(closest_carriage.location, vehicles)
-                        order_info["vehicle_id"] = closest_vehicle.id if closest_vehicle else None
-                        closest_vehicle.state = 1  # 更新车辆状态
-                    else:
-                        order_info["carriage_id"] = None
-                        order_info["vehicle_id"] = None
-            carriage_vehicle_dock_assignments.append(order_info)
+        order_sequences, carriage_vehicle_dock_assignments = process_unloading_orders(unloading_orders, warehouses,
+                                                                                      carriages, vehicles)
 
     try:
-        return jsonify({"code": 0,
-                        "message": "处理成功。",
-                        "data": {
-                            "order_sequences": order_sequences,
-                            "carriage_vehicle_dock_assignments": carriage_vehicle_dock_assignments,
-                        }})
+        response = create_response(order_sequences, carriage_vehicle_dock_assignments)
+        return response
 
     except Exception as e:
         print(e)

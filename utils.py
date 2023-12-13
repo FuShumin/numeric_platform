@@ -278,7 +278,7 @@ def calculate_lay_time(order_info):
     if selected_dock_id is None:
         return None  # 如果没有选择月台，则无法计算 lay_time
 
-    # 获取选择的月台
+    # 通过月台id 选取月台对象
     selected_dock = next((dock for dock in order_info["warehouse"].docks if dock.id == selected_dock_id), None)
     if selected_dock is None or selected_dock.efficiency == 0:
         return None  # 如果没有找到月台或月台效率为 0，则无法计算 lay_time
@@ -315,65 +315,6 @@ def generate_schedule_from_orders(parsed_orders):
 
 
 # 内部订单装货路线聚合仓库
-def generate_loading_route(cargo_operations):
-    loading_operations = [op for op in cargo_operations if op.operation == 1]
-    warehouse_aggregate = {}
-    for op in loading_operations:
-        if op.warehouse_id not in warehouse_aggregate:
-            warehouse_aggregate[op.warehouse_id] = []
-        warehouse_aggregate[op.warehouse_id].append(op)
-
-    optimized_loading_route = []
-    for warehouse_id in warehouse_aggregate:
-        # 可以在这里添加额外的优化逻辑
-        optimized_loading_route.extend(warehouse_aggregate[warehouse_id])
-
-    return optimized_loading_route
-
-
-def generate_unloading_route(cargo_operations, cargo_stack):
-    cargo_stack_copy = copy.deepcopy(cargo_stack)
-    unloading_route = []
-    unloading_operations = [op for op in cargo_operations if op.operation == 2]
-
-    for i in range(len(cargo_stack_copy) - 1, -1, -1):
-        stack_op = cargo_stack_copy[i]
-        for operation in unloading_operations:
-            # 从栈顶部（最后一个装载的货物）开始寻找匹配货物
-            if stack_op.cargo_type == operation.cargo_type and stack_op.quantity == operation.quantity:
-                # 卸载操作
-                unloading_route.append(
-                    WarehouseLoad(operation.warehouse_id, stack_op.cargo_type, operation.quantity, 2))
-                break
-
-    return unloading_route
-
-
-# 装货路线和卸货路线 去重
-def extract_unique_warehouse_ids(route):
-    seen_warehouses = set()
-    unique_warehouses = []
-    for operation in route:
-        if operation.warehouse_id not in seen_warehouses:
-            seen_warehouses.add(operation.warehouse_id)
-            unique_warehouses.append(operation.warehouse_id)
-    return unique_warehouses
-
-
-def parse_cargo_operations(order):
-    cargo_operations = []
-
-    for load in order.warehouse_loads:
-        # 提取需要的信息
-        warehouse_id = load.warehouse_id
-        item_code = load.cargo_type
-        quantity = load.quantity
-        operation = load.operation
-
-        # 创建 WarehouseLoad 对象并添加到列表
-        cargo_operations.append(WarehouseLoad(warehouse_id, item_code, quantity, operation))
-
-    return cargo_operations
 
 
 def main():
@@ -403,4 +344,3 @@ def main():
 
     # 合并装货和卸货路线的仓库ID
     combined_warehouse_ids = unique_loading_ids + unique_unloading_ids
-
