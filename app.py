@@ -151,11 +151,11 @@ def internal_orders_queueing():
         # SECTION 内部入库单
         if loading_orders:
             order_sequences, carriage_vehicle_dock_assignments = process_loading_orders(
-                loading_orders, loading_warehouses, carriages)
+                loading_orders, warehouses, carriages)
         # SECTION 内部出库单
         elif unloading_orders:
             order_sequences, carriage_vehicle_dock_assignments = process_unloading_orders(
-                unloading_orders, unloading_warehouses, carriages, vehicles)
+                unloading_orders, warehouses, carriages, vehicles)
 
         # 确保变量已被赋值
         if order_sequences is None or carriage_vehicle_dock_assignments is None:
