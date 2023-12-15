@@ -207,7 +207,8 @@ def parse_order_carriage_info(data):
         perform_vehicle_matching = info.get('perform_vehicle_matching', True)
         perform_dock_matching = info.get('perform_dock_matching', True)
         add_cx_task = info.get('add_cx_task', True)
-        sort_no = info.get('sort_no', 0)
+        sort_no = info.get('sort_no', None)
+        current_dock_id = info.get('current_dock_id', None)
         load = info.get('load', 0)
         # 将解析后的对象添加到列表
         parsed_orders.append({
@@ -217,8 +218,9 @@ def parse_order_carriage_info(data):
             "perform_vehicle_matching": perform_vehicle_matching,
             "load": load,
             "perform_dock_matching": perform_dock_matching,
-            "add_cx_task": add_cx_task,   # 后端传递参数
-            "sort_no": sort_no   # 后端传递参数
+            "add_cx_task": add_cx_task,  # 后端传递参数
+            "sort_no": sort_no,  # 后端传递参数
+            "current_dock_id": current_dock_id  # 后端传递参数
         })
 
     return parsed_orders

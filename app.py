@@ -215,7 +215,8 @@ def drop_pull_scheduling():
                 "perform_vehicle_matching": order_info.get("perform_vehicle_matching"),
                 "perform_dock_matching": order_info.get("perform_dock_matching"),
                 "add_cx_task": order_info.get("add_cx_task"),
-                "sort_no": order_info.get("sort_no")
+                "sort_no": order_info.get("sort_no"),
+                "current_dock_id": order_info.get("current_dock_id")
             }
             vehicle_dock_assignments.append(assignment)
 
@@ -238,4 +239,4 @@ def drop_pull_scheduling():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5050)
+    app.run(debug=True)
