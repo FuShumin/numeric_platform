@@ -11,7 +11,10 @@ version_info = 'v1.66'
 # 外部订单排队叫号算法
 @app.route('/external_orders_queueing', methods=['POST'])
 def external_orders_queueing():
-    print(version_info)
+    """
+    :return: JSON object containing the processed result of the method
+    """
+    print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
     # 解析仓库数据
     warehouses = [Warehouse(w['warehouse_id'], [Dock(**d) for d in w['docks']]) for w in data['warehouses']]
@@ -139,7 +142,10 @@ def external_orders_queueing():
 
 @app.route('/internal_orders_queueing', methods=['POST'])
 def internal_orders_queueing():
-    print(version_info)
+    """
+    :return: A JSON response containing the order sequences and carriage vehicle dock assignments if successful. Otherwise, a JSON response with an error code and message.
+    """
+    print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
     # 解析仓库数据
     warehouses, orders, vehicles, carriages = parse_internal_data(data)
@@ -176,7 +182,12 @@ def internal_orders_queueing():
 
 @app.route('/drop_pull_scheduling', methods=['POST'])
 def drop_pull_scheduling():
-    print(version_info)
+    """
+    Perform drop-pull scheduling based on the given data.
+
+    :return: JSON response with vehicle-dock assignments or error message
+    """
+    print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
     filename = "DropPull_schedule.csv"
 
@@ -239,4 +250,4 @@ def drop_pull_scheduling():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5050)
