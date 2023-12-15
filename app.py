@@ -3,12 +3,15 @@ from lp import *
 from utils import *
 from pulp import PULP_CBC_CMD, LpStatus
 from internal_utils import *
+
 app = Flask(__name__)
+version_info = 'v1.66'
 
 
 # 外部订单排队叫号算法
 @app.route('/external_orders_queueing', methods=['POST'])
 def external_orders_queueing():
+    print(version_info)
     data = request.json  # 获取 JSON 格式的数据
     # 解析仓库数据
     warehouses = [Warehouse(w['warehouse_id'], [Dock(**d) for d in w['docks']]) for w in data['warehouses']]
@@ -136,13 +139,14 @@ def external_orders_queueing():
 
 @app.route('/internal_orders_queueing', methods=['POST'])
 def internal_orders_queueing():
+    print(version_info)
     data = request.json  # 获取 JSON 格式的数据
     # 解析仓库数据
     warehouses, orders, vehicles, carriages = parse_internal_data(data)
     # 根据订单类型分别创建装车和卸车订单的列表
     loading_orders, unloading_orders = classify_orders(orders)
-    # 创建两个新的仓库列表，分别用于装车和卸车任务
-    loading_warehouses, unloading_warehouses = create_warehouses(warehouses)
+    # 设置仓库效率
+    set_dock_efficiency(warehouses)
 
     # 初始化变量
     order_sequences = None
@@ -172,6 +176,7 @@ def internal_orders_queueing():
 
 @app.route('/drop_pull_scheduling', methods=['POST'])
 def drop_pull_scheduling():
+    print(version_info)
     data = request.json  # 获取 JSON 格式的数据
     filename = "DropPull_schedule.csv"
 
@@ -233,4 +238,4 @@ def drop_pull_scheduling():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5050)
