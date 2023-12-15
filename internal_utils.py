@@ -1,8 +1,6 @@
 import copy
 import random
-
 from flask import jsonify
-
 from common import Warehouse, Dock, Order, Carriage, Vehicle, WarehouseLoad, generate_schedule
 from utils import haversine_distance, find_closest_vehicle
 
@@ -156,7 +154,7 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         cargo_operations = parse_cargo_operations(order)
         loading_route = generate_loading_route(cargo_operations)
 
-        cargo_stack = [operation for operation in loading_route if operation.operation == 1]  # 假设 1 代表装货
+        cargo_stack = [operation for operation in loading_route if operation.operation == 1]  # 订单类型 1 代表装货
         unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
         # 提取并去重仓库ID
         unique_loading_ids = extract_unique_warehouse_ids(loading_route)
@@ -170,7 +168,7 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         order_info["warehouse_id"] = first_warehouse_id
         first_warehouse = next((w for w in warehouses if w.id == first_warehouse_id), None)
         compatible_docks = [dock for dock in first_warehouse.docks if
-                            (dock.dock_type == 2 or dock.dock_type == 3) and required_carriage in
+                            (dock.dock_type == 2 or dock.dock_type == 3) and required_carriage in  # 月台类型2代表装货，3代表通用
                             dock.compatible_carriage]
         compatible_docks.sort(key=lambda x: (-x.outbound_efficiency, random.random()))
         if compatible_docks:
@@ -215,20 +213,14 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
     return order_sequences, carriage_vehicle_dock_assignments
 
 
-def create_warehouses(warehouses):
-    loading_warehouses = []
-    unloading_warehouses = []
+def set_dock_efficiency(warehouses):
     for warehouse in warehouses:
-        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
-        for dock in loading_docks:
-            dock.set_efficiency(2)
-        if loading_docks:
-            loading_warehouses.append(Warehouse(warehouse.id, loading_docks, warehouse.location))
-
         unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
         for dock in unloading_docks:
             dock.set_efficiency(1)
-        if unloading_docks:
-            unloading_warehouses.append(Warehouse(warehouse.id, unloading_docks, warehouse.location))
 
-    return loading_warehouses, unloading_warehouses
+        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
+        for dock in loading_docks:
+            dock.set_efficiency(2)
+
+    return None
