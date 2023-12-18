@@ -322,7 +322,6 @@ def generate_schedule_from_orders(parsed_orders):
 
 
 def main():
-    # 假设从输入提取出子任务列表如下 # TODO
     cargo_operations = [
         WarehouseLoad(1, 'A', 400, 'load'),
         WarehouseLoad(2, 'B', 200, 'load'),
