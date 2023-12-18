@@ -6,11 +6,11 @@ from internal_utils import *
 import logging
 from logging.handlers import RotatingFileHandler
 
-
 # 设置日志记录到文件
 log_file = 'application.log'
 file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=10)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+date_format = '%d/%b/%Y %H:%M:%S'
+formatter = logging.Formatter(fmt='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s', datefmt=date_format)
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.INFO)
 
@@ -19,7 +19,7 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
-version_info = 'v1.8'
+version_info = 'v1.81'
 
 
 # 外部订单排队叫号算法
