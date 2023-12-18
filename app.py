@@ -198,8 +198,16 @@ def drop_pull_scheduling():
         vehicles = [Vehicle(**v) for v in data['vehicles']]
         vehicle_dock_assignments = []
         # 打印解析结果
-        set_efficiency_for_docks(parsed_orders)
+        # set_efficiency_for_docks(parsed_orders)
         for order_info in parsed_orders:
+            warehouse = (order_info['warehouse'])
+            unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
+            for dock in unloading_docks:
+                dock.set_efficiency(1)
+
+            loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
+            for dock in loading_docks:
+                dock.set_efficiency(2)
 
             if order_info.get('perform_dock_matching'):
                 selected_dock_id = find_earliest_and_efficient_dock(order_info, loaded_schedule)
