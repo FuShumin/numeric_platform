@@ -141,19 +141,22 @@ def external_orders_queueing():
         schedule = pd.concat([loading_schedule, unloading_schedule], ignore_index=True)
         parsed_result = parse_schedule(schedule)
 
-        return jsonify({
+        response = jsonify({
             "code": 0,
             "message": "处理成功。",
             "data": parsed_result
         })
+        logger.info(f"处理成功，响应数据: {response.get_data(as_text=True)}")  # 处理成功的日志
+        return response
 
     except Exception as e:
-        print(e)
-        # 返回错误信息
-        return jsonify({
+        logger.error(f"处理过程中发生错误: {e}")  # 错误日志
+        response = jsonify({
             "code": 1,
             "message": "处理过程中发生错误。"
         }), 500
+        logger.info(f"错误响应: {response[0].get_data(as_text=True)}, 状态码: {response[1]}")  # 错误响应的日志
+        return response
 
 
 @app.route('/internal_orders_queueing', methods=['POST'])
@@ -189,12 +192,14 @@ def internal_orders_queueing():
             raise ValueError("未能成功生成订单序列或车辆装载分配。")
 
         response = create_response(order_sequences, carriage_vehicle_dock_assignments)
+        logger.info(f"响应成功创建，数据: {response.get_data(as_text=True)}")  # 成功响应的日志
         return response
 
     except Exception as e:
-        print(e)
-        # 返回错误信息
-        return jsonify({"code": 1, "message": f"处理过程中发生错误：{e}。"}), 400
+        logger.error(f"处理过程中发生错误: {e}")  # 错误日志
+        error_response = jsonify({"code": 1, "message": f"处理过程中发生错误：{e}。"}), 400
+        logger.info(f"错误响应: {error_response[0].get_data(as_text=True)}, 状态码: {error_response[1]}")  # 错误响应的日志
+        return error_response
 
 
 @app.route('/drop_pull_scheduling', methods=['POST'])
@@ -260,19 +265,22 @@ def drop_pull_scheduling():
         schedule = generate_schedule_from_orders(parsed_orders)
         save_schedule_to_file(schedule, filename)
 
-        return jsonify({
+        response = jsonify({
             "code": 0,
             "message": "处理成功。",
             "data": vehicle_dock_assignments,
         })
+        logger.info(f"处理成功，响应数据: {response.get_data(as_text=True)}")  # 记录成功响应的日志
+        return response
 
     except Exception as e:
-        print(e)
-        # 返回错误信息
-        return jsonify({
+        logger.error(f"处理过程中发生错误: {e}")  # 记录异常的日志
+        error_response = jsonify({
             "code": 1,
             "message": "处理过程中发生错误。"
         }), 500
+        logger.info(f"错误响应: {error_response[0].get_data(as_text=True)}, 状态码: {error_response[1]}")  # 记录错误响应的日志
+        return error_response
 
 
 if __name__ == '__main__':
