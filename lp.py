@@ -49,7 +49,7 @@ def create_lp_model(orders, warehouses, total_busy_time=None):
                 model += pulp.lpSum(owd[order.id, warehouse.id, dock.id] for dock in warehouse.docks) == 0
 
             for dock in warehouse.docks:
-                if order.required_carriage not in dock.compatible_carriage:
+                if order.required_carriage is not None and order.required_carriage not in dock.compatible_carriage:
                     model += owd[order.id, warehouse.id, dock.id] == 0
 
     return model
