@@ -7,7 +7,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 import json
 import sys
-sys.setrecursionlimit(sys.getrecursionlimit()*5)
+
+sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 
 # 设置日志记录到文件
 log_file = 'application.log'
@@ -82,7 +83,7 @@ def external_orders_queueing():
     # SECTION 3 对装车订单进行一阶段线性规划
     # 读取已有时间表
     filename = "local_schedule.csv"
-    loaded_schedule = load_and_prepare_schedule(filename, loading_orders)
+    loaded_schedule = load_and_prepare_schedule(filename, loading_orders, "queue")
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, loading_warehouses)
 
     loading_model = create_lp_model(loading_orders, loading_warehouses, existing_busy_time)
@@ -117,7 +118,7 @@ def external_orders_queueing():
     save_schedule_to_file(loading_schedule, filename)
     # SECTION 4 卸车订单的处理, 同上
     # 查找每个月台已占用的忙碌时间窗口
-    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders)
+    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders, "queue")
     existing_busy_time, busy_slots = calculate_busy_times_and_windows(loaded_schedule, warehouses)
 
     unloading_model = create_lp_model(unloading_orders, unloading_warehouses, existing_busy_time)
@@ -240,7 +241,7 @@ def drop_pull_scheduling():
                 # 返回JSON响应和400错误状态码
                 return error_response, 400
 
-        loaded_schedule = load_and_prepare_schedule(filename, orders)
+        loaded_schedule = load_and_prepare_schedule(filename, orders, "drop")
         vehicles = [Vehicle(**v) for v in data['vehicles']]
         vehicle_dock_assignments = []
         # 打印解析结果
