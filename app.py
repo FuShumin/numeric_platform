@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 from lp import *
 from utils import *
 from pulp import PULP_CBC_CMD, LpStatus
@@ -143,6 +143,11 @@ def internal_orders_queueing():
     loading_orders, unloading_orders = classify_orders(orders)
     # 创建两个新的仓库列表，分别用于装车和卸车任务
     loading_warehouses, unloading_warehouses = create_warehouses(warehouses)
+    # 异常检查：确保订单中的"required_carriage"字段不为空
+    for order in orders:
+        if order.required_carriage is None:
+            #abort(400, "缺少需求车型")
+            abort(400, "订单 {} 缺少需求车型 'required_carriage'".format(order.id))
 
     # 初始化变量
     order_sequences = None
