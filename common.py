@@ -186,6 +186,8 @@ def save_schedule_to_file(schedule, filename="test_schedule.csv"):
 
     # 合并现有和新的调度数据
     updated_schedule = pd.concat([existing_schedule, schedule], ignore_index=True)
+    updated_schedule['Start Time'] = pd.to_datetime(updated_schedule['Start Time'])
+
     updated_schedule.sort_values(by='Start Time', ascending=False, inplace=True)
     # 去除重复项
     updated_schedule.drop_duplicates(subset=["Order ID", "Warehouse ID", "Dock ID"],
