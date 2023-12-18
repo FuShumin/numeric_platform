@@ -3,9 +3,23 @@ from lp import *
 from utils import *
 from pulp import PULP_CBC_CMD, LpStatus
 from internal_utils import *
+import logging
+from logging.handlers import RotatingFileHandler
+
+
+# 设置日志记录到文件
+log_file = 'application.log'
+file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=10)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+file_handler.setLevel(logging.INFO)
+
+logger = logging.getLogger(__name__)
+logger.addHandler(file_handler)
+logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
-version_info = 'v1.66'
+version_info = 'v1.7'
 
 
 # 外部订单排队叫号算法
@@ -16,6 +30,7 @@ def external_orders_queueing():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
+    logger.info(f"Received request with data: {data}")  # 记录入参
     # 解析仓库数据
     warehouses = [Warehouse(w['warehouse_id'], [Dock(**d) for d in w['docks']]) for w in data['warehouses']]
 
@@ -125,6 +140,7 @@ def external_orders_queueing():
     try:
         schedule = pd.concat([loading_schedule, unloading_schedule], ignore_index=True)
         parsed_result = parse_schedule(schedule)
+
         return jsonify({
             "code": 0,
             "message": "处理成功。",
@@ -147,6 +163,7 @@ def internal_orders_queueing():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
+    logger.info(f"Received request with data: {data}")  # 记录入参
     # 解析仓库数据
     warehouses, orders, vehicles, carriages = parse_internal_data(data)
     # 根据订单类型分别创建装车和卸车订单的列表
@@ -189,6 +206,7 @@ def drop_pull_scheduling():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
+    logger.info(f"Received request with data: {data}")  # 记录入参
     filename = "DropPull_schedule.csv"
 
     try:
