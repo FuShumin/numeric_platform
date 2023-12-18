@@ -5,7 +5,7 @@ from pulp import PULP_CBC_CMD, LpStatus
 from internal_utils import *
 import logging
 from logging.handlers import RotatingFileHandler
-
+import json
 # 设置日志记录到文件
 log_file = 'application.log'
 file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=10)
@@ -30,7 +30,7 @@ def external_orders_queueing():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
-    logger.info(f"Received request with data: {data}")  # 记录入参
+    logger.info(f"Received request with data: {json.dumps(data)}")  # 记录入参
     # 解析仓库数据
     warehouses = [Warehouse(w['warehouse_id'], [Dock(**d) for d in w['docks']]) for w in data['warehouses']]
 
@@ -39,8 +39,8 @@ def external_orders_queueing():
 
     # SECTION 1 划分装卸车任务类型
     # 根据订单类型分别创建装车和卸车订单的列表
-    loading_orders = [order for order in orders if order.order_type == 2]
-    unloading_orders = [order for order in orders if order.order_type == 1]
+    loading_orders = [order for order in orders if order.order_type == 1]
+    unloading_orders = [order for order in orders if order.order_type == 2]
     # 创建两个新的仓库列表，分别用于装车和卸车任务
     loading_warehouses = []
     unloading_warehouses = []
@@ -81,7 +81,6 @@ def external_orders_queueing():
     print("=" * 10)
 
     # TODO when problem is infeasible，raise error/logs
-    loading_var_dicts = loading_model.variablesDict()
     loading_order_dock_assignments, loading_latest_completion_time = parse_optimization_result(loading_model, orders,
                                                                                                warehouses)
     print("Order Dock Assignments:", loading_order_dock_assignments)
@@ -166,7 +165,7 @@ def internal_orders_queueing():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
-    logger.info(f"Received request with data: {data}")  # 记录入参
+    logger.info(f"Received request with data: {json.dumps(data)}")  # 记录入参
     # 解析仓库数据
     warehouses, orders, vehicles, carriages = parse_internal_data(data)
     # 根据订单类型分别创建装车和卸车订单的列表
@@ -211,7 +210,7 @@ def drop_pull_scheduling():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
-    logger.info(f"Received request with data: {data}")  # 记录入参
+    logger.info(f"Received request with data: {json.dumps(data)}")  # 记录入参
     filename = "DropPull_schedule.csv"
 
     try:
