@@ -167,10 +167,24 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         first_load = calculate_total_quantity(cargo_stack, first_warehouse_id)
         order_info["warehouse_id"] = first_warehouse_id
         first_warehouse = next((w for w in warehouses if w.id == first_warehouse_id), None)
+        """
+        如果一个月台上有不符合要求的车厢且该车厢处于空闲状态（c.state == 0），这个月台就不会被包括在兼容月台列表中。
+        """
         compatible_docks = [dock for dock in first_warehouse.docks if
-                            (dock.dock_type == 2 or dock.dock_type == 3) and required_carriage in  # 月台类型2代表装货，3代表通用
-                            dock.compatible_carriage]
-        compatible_docks.sort(key=lambda x: (-x.outbound_efficiency, random.random()))
+                            (dock.dock_type in [2, 3]) and required_carriage in dock.compatible_carriage and
+                            all(c.type == required_carriage or c.state != 0 for c in carriages if
+                                c.current_dock_id == dock.id)]  # 月台类型2代表装货，3代表通用
+        """
+        1 存在符合条件的空闲车厢的月台会被优先考虑。
+        2 按照月台的出站效率进行排序。效率越高，月台越优先被选择。
+        3 随机选择
+        """
+        compatible_docks.sort(key=lambda dock: (
+            -any(c.current_dock_id == dock.id and c.type == required_carriage and c.state == 0 for c in carriages),
+            -dock.outbound_efficiency,
+            random.random()
+        ))
+
         if compatible_docks:
             assigned_dock = compatible_docks[0]
             assigned_dock_id = assigned_dock.id
