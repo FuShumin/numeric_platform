@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 import json
 # 设置日志记录到文件
 log_file = 'application.log'
-file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=10)
+file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=1)
 date_format = '%d/%b/%Y %H:%M:%S'
 formatter = logging.Formatter(fmt='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s', datefmt=date_format)
 file_handler.setFormatter(formatter)
