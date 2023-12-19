@@ -2,7 +2,7 @@ import pulp
 import random
 import pandas as pd
 from datetime import datetime, timedelta
-
+import logging
 
 class Order:
     def __init__(self, order_id, warehouse_loads, priority, sequential, required_carriage, order_type):
@@ -26,6 +26,8 @@ class Order:
                 self.warehouse_loads.append(wl)
         self.priority = priority
         self.sequential = sequential
+        if required_carriage is None or required_carriage == '':
+            logging.warning(f"订单 {order_id} 缺少需求车型 'required_carriage'")
         self.required_carriage = required_carriage
         self.order_type = order_type
 
@@ -44,7 +46,7 @@ class Dock:
         self.compatible_carriage = compatible_carriage
 
     def set_efficiency(self, order_type):
-        if order_type == 2 or self.dock_type == 3:     # 2=月台出库，车辆装货, 1=月台入库，车辆卸货
+        if order_type == 2 or self.dock_type == 3:  # 2=月台出库，车辆装货, 1=月台入库，车辆卸货
             self.efficiency = self.outbound_efficiency
         elif order_type == 1 or self.dock_type == 3:
             self.efficiency = self.inbound_efficiency

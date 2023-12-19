@@ -36,6 +36,15 @@ def external_orders_queueing():
 
     # 解析订单数据
     orders = [Order(**o) for o in data['orders']]
+    for order in orders:
+        if order.required_carriage is None:
+            # 创建一个包含错误信息的JSON响应
+            error_response = jsonify({
+                "code": 1,
+                "message": "订单 {} 缺少需求车型 'required_carriage'".format(order.id)
+            })
+            # 返回JSON响应和400错误状态码
+            return error_response, 400
 
     # SECTION 1 划分装卸车任务类型
     # 根据订单类型分别创建装车和卸车订单的列表
@@ -168,6 +177,7 @@ def internal_orders_queueing():
     logger.info(f"Received request with data: {json.dumps(data)}")  # 记录入参
     # 解析仓库数据
     warehouses, orders, vehicles, carriages = parse_internal_data(data)
+
     # 根据订单类型分别创建装车和卸车订单的列表
     loading_orders, unloading_orders = classify_orders(orders)
     # 设置仓库效率
@@ -216,6 +226,17 @@ def drop_pull_scheduling():
     try:
         parsed_orders = parse_order_carriage_info(data)
         orders = [order_info['order'] for order_info in parsed_orders]
+
+        for order in orders:
+            if order.required_carriage is None:
+                # 创建一个包含错误信息的JSON响应
+                error_response = jsonify({
+                    "code": 1,
+                    "message": "订单 {} 缺少需求车型 'required_carriage'".format(order.id)
+                })
+                # 返回JSON响应和400错误状态码
+                return error_response, 400
+
         loaded_schedule = load_and_prepare_schedule(filename, orders)
         vehicles = [Vehicle(**v) for v in data['vehicles']]
         vehicle_dock_assignments = []
