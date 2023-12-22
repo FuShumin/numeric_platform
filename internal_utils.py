@@ -1,7 +1,11 @@
 import copy
+from datetime import datetime, timedelta
 import random
+
+import pandas as pd
 from flask import jsonify
-from common import Warehouse, Dock, Order, Carriage, Vehicle, WarehouseLoad, generate_schedule
+from common import Warehouse, Dock, Order, Carriage, Vehicle, WarehouseLoad, generate_schedule, save_schedule_to_file, \
+    load_and_prepare_schedule
 from utils import haversine_distance, find_closest_vehicle
 
 
@@ -145,7 +149,8 @@ def process_loading_orders(loading_orders, warehouses, carriages):
 def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
     order_sequences = {}
     carriage_vehicle_dock_assignments = []
-
+    filename = 'internal_schedule.csv'
+    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders)
     for order in unloading_orders:
         order_info = {}
         order_id = str(order.id)
@@ -174,6 +179,19 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
                             (dock.dock_type in [2, 3]) and required_carriage in dock.compatible_carriage and
                             all(c.type == required_carriage or c.state != 0 for c in carriages if
                                 c.current_dock_id == dock.id)]  # 月台类型2代表装货，3代表通用
+        # 在选择月台之前，提取每个月台的最早可用时间
+        dock_available_times = {}
+        for dock in compatible_docks:
+            dock_schedule = loaded_schedule[loaded_schedule['Dock ID'] == dock.id]
+
+            if dock_schedule.empty:
+                available_time = datetime.now()  # 如果没有安排，则认为是立即可用
+            else:
+                # 获取最晚的结束时间作为可用时间
+                available_time = dock_schedule['End Time'].max()
+
+            dock_available_times[dock.id] = available_time
+
         """
         1 存在符合条件的空闲车厢的月台会被优先考虑。
         2 按照月台的出站效率进行排序。效率越高，月台越优先被选择。
@@ -181,6 +199,7 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         """
         compatible_docks.sort(key=lambda dock: (
             -any(c.current_dock_id == dock.id and c.type == required_carriage and c.state == 0 for c in carriages),
+            dock_available_times[dock.id],
             -dock.outbound_efficiency,
             random.random()
         ))
@@ -191,6 +210,16 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
             order_info["dock_id"] = assigned_dock_id
             lay_time = first_load / assigned_dock.efficiency  # TODO 加权
             order_info["lay_time"] = lay_time
+            start_time = datetime.now()
+            end_time = start_time + timedelta(minutes=lay_time)
+
+            # 构建 start_times 和 end_times
+            start_times = {(order_info["order_id"], order_info["warehouse_id"], order_info["dock_id"]): start_time}
+            end_times = {(order_info["order_id"], order_info["warehouse_id"], order_info["dock_id"]): end_time}
+
+            schedule = generate_schedule(start_times, end_times, "drop")
+            save_schedule_to_file(schedule, filename)
+
             # 判断月台是否已有符合条件的车厢
             matching_carriage = next((c for c in carriages if c.current_dock_id == assigned_dock_id
                                       and c.type == required_carriage
