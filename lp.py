@@ -1,5 +1,4 @@
 from pulp import LpProblem, LpMinimize, LpVariable, lpSum, LpContinuous, LpInteger, value
-from visualization import *
 from common import *
 
 
@@ -177,43 +176,3 @@ def create_queue_model(orders, warehouses, order_dock_assignments, specific_orde
                     model += busy_end <= start_times[order.id, warehouse.id, dock_id] + overlap * M
 
     return model
-
-
-def main():
-    orders, warehouses = generate_test_data(num_orders=10, num_docks_per_warehouse=4, num_warehouses=4)
-    specific_order_route = generate_specific_order_route(orders)
-
-    # 打印订单信息
-    for order in orders:
-        print(order)
-
-    # 打印仓库信息
-    for warehouse in warehouses:
-        print(warehouse)
-
-    model = create_lp_model(orders, warehouses)
-    model.solve()
-
-    order_dock_assignments, latest_completion_time = parse_optimization_result(model, orders, warehouses)
-    print("Order Dock Assignments:", order_dock_assignments)
-    print("Latest Completion Time:", latest_completion_time)
-    queue_model = create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route)
-    queue_model.solve()
-    start_times, end_times = parse_queue_results(queue_model, orders, warehouses)
-    # 显示排队结果
-    print("Start Times:", start_times)
-    print("End Times:", end_times)
-    # 可视化绘制
-    plot_order_times_on_docks(start_times, end_times)
-    # 生成时间表
-    schedule = generate_schedule(start_times, end_times)
-    print(schedule)
-    # 保存时间表到文件
-    filename = "test_schedule.csv"
-    save_schedule_to_file(schedule, filename)
-    # 从文件加载时间表
-    loaded_schedule = load_schedule_from_file(filename)
-
-
-if __name__ == "__main__":
-    main()

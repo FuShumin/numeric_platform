@@ -6,6 +6,9 @@ from internal_utils import *
 import logging
 from logging.handlers import RotatingFileHandler
 import json
+import sys
+sys.setrecursionlimit(sys.getrecursionlimit()*5)
+
 # 设置日志记录到文件
 log_file = 'application.log'
 file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=1)
@@ -19,7 +22,7 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
-version_info = 'v1.81'
+version_info = '【version: v2】'
 
 
 # 外部订单排队叫号算法
@@ -304,4 +307,4 @@ def drop_pull_scheduling():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5050)
+    app.run(host='0.0.0.0', port=5010, threaded=True, debug=False)
