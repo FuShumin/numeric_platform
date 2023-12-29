@@ -39,15 +39,15 @@ def external_orders_queueing():
 
     # 解析订单数据
     orders = [Order(**o) for o in data['orders']]
-    for order in orders:
-        if order.required_carriage is None:
-            # 创建一个包含错误信息的JSON响应
-            error_response = jsonify({
-                "code": 1,
-                "message": "订单 {} 缺少需求车型 'required_carriage'".format(order.id)
-            })
-            # 返回JSON响应和400错误状态码
-            return error_response, 400
+    # for order in orders:
+    #     if order.required_carriage is None:
+    #         # 创建一个包含错误信息的JSON响应
+    #         error_response = jsonify({
+    #             "code": 1,
+    #             "message": "订单 {} 缺少需求车型 'required_carriage'".format(order.id)
+    #         })
+    #         # 返回JSON响应和400错误状态码
+    #         return error_response, 400
 
     # SECTION 1 划分装卸车任务类型
     # 根据订单类型分别创建装车和卸车订单的列表
