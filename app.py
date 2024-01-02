@@ -11,7 +11,7 @@ sys.setrecursionlimit(sys.getrecursionlimit()*5)
 
 # 设置日志记录到文件
 log_file = 'application.log'
-file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=1)
+file_handler = RotatingFileHandler(log_file, maxBytes=1024 * 1024 * 100, backupCount=5)
 date_format = '%d/%b/%Y %H:%M:%S'
 formatter = logging.Formatter(fmt='[%(asctime)s] - %(name)s - %(levelname)s - %(message)s', datefmt=date_format)
 file_handler.setFormatter(formatter)
@@ -22,7 +22,7 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
-version_info = '【version: v2】'
+version_info = '【version: v2.2】'
 
 
 # 外部订单排队叫号算法
