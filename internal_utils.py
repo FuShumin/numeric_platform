@@ -121,7 +121,7 @@ def process_loading_orders(loading_orders, warehouses, carriages):
         order_id = str(order.id)
         cargo_operations = parse_cargo_operations(order)
         loading_route = generate_loading_route(cargo_operations)
-
+        required_carriage = order.required_carriage
         cargo_stack = [operation for operation in loading_route if operation.operation == 1]  # 1 =装货， 2=卸货
         unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
 
@@ -133,15 +133,18 @@ def process_loading_orders(loading_orders, warehouses, carriages):
         first_warehouse = next((w for w in warehouses if w.id == first_warehouse_id), None)
         warehouse_location = first_warehouse.location
         closest_carriage = min(
-            (c for c in carriages if c.state == 0),
+            (c for c in carriages if c.state == 0 and c.type == required_carriage),
             key=lambda c: haversine_distance(c.location['latitude'], c.location['longitude'],
                                              warehouse_location['latitude'], warehouse_location['longitude']),
             default=None
         )
         if closest_carriage:
             closest_carriage.state = 1
-        carriage_vehicle_dock_assignments.append({"order_id": order.id,
-                                                  "carriage_id": closest_carriage.id})
+            carriage_vehicle_dock_assignments.append({"order_id": order.id,
+                                                      "carriage_id": closest_carriage.id})
+        else:
+            carriage_vehicle_dock_assignments.append({"order_id": order.id,
+                                                      "carriage_id": None})
 
     return order_sequences, carriage_vehicle_dock_assignments
 
