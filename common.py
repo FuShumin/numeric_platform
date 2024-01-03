@@ -168,7 +168,7 @@ def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
 def save_schedule_to_file(schedule, filename="test_schedule.csv"):
     def load_existing_schedule():
         try:
-            return pd.read_csv(filename)
+            return pd.read_csv(filename, encoding='utf-8')
         except FileNotFoundError:
             return pd.DataFrame(columns=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"])
 
@@ -197,7 +197,7 @@ def save_schedule_to_file(schedule, filename="test_schedule.csv"):
     # 清理7天以上的旧数据
     updated_schedule = filter_old_data(updated_schedule)
     # 保存到 CSV 文件
-    updated_schedule.to_csv(filename, index=False)
+    updated_schedule.to_csv(filename, index=False, encoding='utf-8')
 
 
 def load_and_prepare_schedule(filename, orders):
@@ -212,7 +212,7 @@ def load_and_prepare_schedule(filename, orders):
         return [order.id for order in orders]
 
     try:
-        loaded_schedule = pd.read_csv(filename)
+        loaded_schedule = pd.read_csv(filename, encoding='utf-8')
 
         # 获取当前时间的时间戳
         current_timestamp = datetime.now().timestamp()
@@ -286,7 +286,7 @@ def load_schedule_from_file(filename):
     :return: DataFrame格式的日程表数据。
     """
     if filename.endswith('.csv'):
-        return pd.read_csv(filename)
+        return pd.read_csv(filename, encoding='utf-8')
     elif filename.endswith('.json'):
         return pd.read_json(filename, orient='records', lines=True)
     else:
