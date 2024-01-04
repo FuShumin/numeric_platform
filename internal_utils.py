@@ -179,9 +179,9 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         如果一个月台上有不符合要求的车厢且该车厢处于空闲状态（c.state == 0），这个月台就不会被包括在兼容月台列表中。
         """
         compatible_docks = [dock for dock in first_warehouse.docks if
-                            (dock.dock_type in [2, 3]) and required_carriage in dock.compatible_carriage and
+                            (dock.dock_type in [1, 3]) and required_carriage in dock.compatible_carriage and
                             all(c.type == required_carriage or c.state != 0 for c in carriages if
-                                c.current_dock_id == dock.id)]  # 月台类型2代表装货，3代表通用
+                                c.current_dock_id == dock.id)]  # 月台类型1代表装货，3代表通用
         # 在选择月台之前，提取每个月台的最早可用时间
         dock_available_times = {}
         for dock in compatible_docks:
@@ -261,11 +261,12 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
 
 def set_dock_efficiency(warehouses):
     for warehouse in warehouses:
-        unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
+        # 卸货月台
+        unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
         for dock in unloading_docks:
-            dock.set_efficiency(1)
+            dock.set_efficiency(1)  # order_type=1
 
-        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
+        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
         for dock in loading_docks:
             dock.set_efficiency(2)
 

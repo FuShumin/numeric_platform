@@ -22,7 +22,7 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
-version_info = '【version: v2.3】'
+version_info = '【version: v2.4】'
 
 
 # 外部订单排队叫号算法
@@ -247,11 +247,11 @@ def drop_pull_scheduling():
         # set_efficiency_for_docks(parsed_orders)
         for order_info in parsed_orders:
             warehouse = (order_info['warehouse'])
-            unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
+            unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
             for dock in unloading_docks:
                 dock.set_efficiency(1)
 
-            loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
+            loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
             for dock in loading_docks:
                 dock.set_efficiency(2)
 
