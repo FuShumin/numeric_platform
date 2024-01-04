@@ -153,7 +153,7 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
     order_sequences = {}
     carriage_vehicle_dock_assignments = []
     filename = 'internal_schedule.csv'
-    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders)
+    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders, "queue")
     for order in unloading_orders:
         order_info = {}
         order_id = str(order.id)
