@@ -23,7 +23,7 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
-version_info = '【version: v2.4】'
+version_info = '【version: v2.5】'
 
 
 # 外部订单排队叫号算法

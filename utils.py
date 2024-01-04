@@ -281,10 +281,6 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
             highest_efficiency = adjusted_efficiency
             selected_dock_id = dock.id
 
-    # 更新选中的月台的历史分配次数
-    if selected_dock_id is not None:
-        historical_assignments[selected_dock_id] = historical_assignments.get(selected_dock_id, 0) + 1
-
     return selected_dock_id
 
 
