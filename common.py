@@ -205,10 +205,11 @@ def save_schedule_to_file(schedule, filename="test_schedule.csv"):
     updated_schedule.to_csv(filename, index=False, encoding='utf-8')
 
 
-def load_and_prepare_schedule(filename, orders):
+def load_and_prepare_schedule(filename, orders, drop_or_queue):
     """
     加载调度文件，并准备数据以便后续处理。
 
+    :param drop_or_queue: 判断是内外部车辆排队接口使用还是甩挂调度接口使用
     :param filename: 调度数据的文件名。
     :return: 准备好的 DataFrame。
     """
@@ -222,9 +223,12 @@ def load_and_prepare_schedule(filename, orders):
         # 获取当前时间的时间戳
         current_timestamp = datetime.now().timestamp()
 
+
+
         # 将 'End Time' 转换为时间戳并剔除过去的时间段
         loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_str_to_timestamp)
-        loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
+        if drop_or_queue == "queue":
+            loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
 
         # 转换时间为模型可用的分钟格式
         loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(convert_to_model_format)
