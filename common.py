@@ -2,7 +2,6 @@ import pulp
 import random
 import pandas as pd
 from datetime import datetime, timedelta
-import logging
 
 
 class Order:
@@ -27,8 +26,6 @@ class Order:
                 self.warehouse_loads.append(wl)
         self.priority = priority
         self.sequential = sequential
-        if required_carriage is None or required_carriage == '':
-            logging.warning(f"订单 {order_id} 缺少需求车型 'required_carriage'")
         self.required_carriage = required_carriage
         self.order_type = order_type
 
@@ -47,13 +44,9 @@ class Dock:
         self.compatible_carriage = compatible_carriage
 
     def set_efficiency(self, order_type):
-        """
-        # 订单类型：2=月台出库，车辆装货, 1=月台入库，车辆卸货；
-          月台类型：1=装货，2=卸货
-        """
-        if order_type == 2 or self.dock_type == [1, 3]:
+        if order_type == 2 or self.dock_type == 3:     # 2=月台出库，车辆装货, 1=月台入库，车辆卸货
             self.efficiency = self.outbound_efficiency
-        elif order_type == 1 or self.dock_type == [2, 3]:
+        elif order_type == 1 or self.dock_type == 3:
             self.efficiency = self.inbound_efficiency
 
     def __str__(self):
@@ -173,7 +166,7 @@ def generate_test_data(num_orders, num_docks_per_warehouse, num_warehouses):
 def save_schedule_to_file(schedule, filename="test_schedule.csv"):
     def load_existing_schedule():
         try:
-            return pd.read_csv(filename, encoding='utf-8')
+            return pd.read_csv(filename)
         except FileNotFoundError:
             return pd.DataFrame(columns=["Order ID", "Warehouse ID", "Dock ID", "Start Time", "End Time"])
 
@@ -193,23 +186,20 @@ def save_schedule_to_file(schedule, filename="test_schedule.csv"):
 
     # 合并现有和新的调度数据
     updated_schedule = pd.concat([existing_schedule, schedule], ignore_index=True)
-    updated_schedule['Start Time'] = pd.to_datetime(updated_schedule['Start Time'])
 
-    updated_schedule.sort_values(by='Start Time', ascending=False, inplace=True)
     # 去除重复项
     updated_schedule.drop_duplicates(subset=["Order ID", "Warehouse ID", "Dock ID"],
-                                     inplace=True)
+                                     inplace=True)  # TODO 添加逻辑：应以最新的OWD为准，覆盖掉旧的
     # 清理7天以上的旧数据
     updated_schedule = filter_old_data(updated_schedule)
     # 保存到 CSV 文件
-    updated_schedule.to_csv(filename, index=False, encoding='utf-8')
+    updated_schedule.to_csv(filename, index=False)
 
 
-def load_and_prepare_schedule(filename, orders, drop_or_queue):
+def load_and_prepare_schedule(filename, orders):
     """
     加载调度文件，并准备数据以便后续处理。
 
-    :param drop_or_queue: 判断是内外部车辆排队接口使用还是甩挂调度接口使用
     :param filename: 调度数据的文件名。
     :return: 准备好的 DataFrame。
     """
@@ -218,17 +208,14 @@ def load_and_prepare_schedule(filename, orders, drop_or_queue):
         return [order.id for order in orders]
 
     try:
-        loaded_schedule = pd.read_csv(filename, encoding='utf-8')
+        loaded_schedule = pd.read_csv(filename)
 
         # 获取当前时间的时间戳
         current_timestamp = datetime.now().timestamp()
 
-
-
         # 将 'End Time' 转换为时间戳并剔除过去的时间段
         loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_str_to_timestamp)
-        if drop_or_queue == "queue":
-            loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
+        loaded_schedule = loaded_schedule[loaded_schedule['End Time'] > current_timestamp]
 
         # 转换时间为模型可用的分钟格式
         loaded_schedule['Start Time'] = loaded_schedule['Start Time'].apply(convert_to_model_format)
@@ -295,7 +282,7 @@ def load_schedule_from_file(filename):
     :return: DataFrame格式的日程表数据。
     """
     if filename.endswith('.csv'):
-        return pd.read_csv(filename, encoding='utf-8')
+        return pd.read_csv(filename)
     elif filename.endswith('.json'):
         return pd.read_json(filename, orient='records', lines=True)
     else:

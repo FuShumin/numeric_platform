@@ -250,7 +250,7 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
     earliest_time = float('inf')
     highest_efficiency = 0
     selected_dock_id = None
-    historical_assignments = {}  # 存储月台的历史分配次数
+
     required_carriage = order_info['order'].required_carriage  # 获取订单所需的车型
 
     for dock in order_info["warehouse"].docks:
@@ -261,29 +261,18 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
         # 查找该月台在调度表中的所有条目
         dock_schedule = loaded_schedule[loaded_schedule['Dock ID'] == dock.id]
 
-        # 获取月台的历史分配次数，如果没有历史记录，则默认为0
-        historical_assignments_count = dock_schedule.shape[0] if not dock_schedule.empty else 0
-        # historical_assignments_count = historical_assignments.get(dock.id, 0)
         # 如果月台没有安排，则认为它立即可用
         if dock_schedule.empty:
             available_time = 0
         else:
             # 获取最晚的结束时间作为可用时间
-            available_time = max(0, dock_schedule['End Time'].max())
-            # available_time = dock_schedule['End Time'].max()
-
-        # 考虑历史分配情况，如果月台分配较多，则降低其优先级
-        adjusted_efficiency = dock.efficiency / (historical_assignments_count + 1)
+            available_time = dock_schedule['End Time'].max()
 
         # 检查月台是否早于当前最早时间，且效率高于当前最高效率
         if available_time < earliest_time or (available_time == earliest_time and dock.efficiency > highest_efficiency):
             earliest_time = available_time
-            highest_efficiency = adjusted_efficiency
+            highest_efficiency = dock.efficiency
             selected_dock_id = dock.id
-
-    # 更新选中的月台的历史分配次数
-    if selected_dock_id is not None:
-        historical_assignments[selected_dock_id] = historical_assignments.get(selected_dock_id, 0) + 1
 
     return selected_dock_id
 

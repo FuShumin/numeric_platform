@@ -1,11 +1,7 @@
 import copy
-from datetime import datetime, timedelta
 import random
-
-import pandas as pd
 from flask import jsonify
-from common import Warehouse, Dock, Order, Carriage, Vehicle, WarehouseLoad, generate_schedule, save_schedule_to_file, \
-    load_and_prepare_schedule
+from common import Warehouse, Dock, Order, Carriage, Vehicle, WarehouseLoad, generate_schedule
 from utils import haversine_distance, find_closest_vehicle
 
 
@@ -121,7 +117,7 @@ def process_loading_orders(loading_orders, warehouses, carriages):
         order_id = str(order.id)
         cargo_operations = parse_cargo_operations(order)
         loading_route = generate_loading_route(cargo_operations)
-        required_carriage = order.required_carriage
+
         cargo_stack = [operation for operation in loading_route if operation.operation == 1]  # 1 =装货， 2=卸货
         unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
 
@@ -133,18 +129,15 @@ def process_loading_orders(loading_orders, warehouses, carriages):
         first_warehouse = next((w for w in warehouses if w.id == first_warehouse_id), None)
         warehouse_location = first_warehouse.location
         closest_carriage = min(
-            (c for c in carriages if c.state == 0 and c.type == required_carriage),
+            (c for c in carriages if c.state == 0),
             key=lambda c: haversine_distance(c.location['latitude'], c.location['longitude'],
                                              warehouse_location['latitude'], warehouse_location['longitude']),
             default=None
         )
         if closest_carriage:
             closest_carriage.state = 1
-            carriage_vehicle_dock_assignments.append({"order_id": order.id,
-                                                      "carriage_id": closest_carriage.id})
-        else:
-            carriage_vehicle_dock_assignments.append({"order_id": order.id,
-                                                      "carriage_id": None})
+        carriage_vehicle_dock_assignments.append({"order_id": order.id,
+                                                  "carriage_id": closest_carriage.id})
 
     return order_sequences, carriage_vehicle_dock_assignments
 
@@ -152,8 +145,7 @@ def process_loading_orders(loading_orders, warehouses, carriages):
 def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
     order_sequences = {}
     carriage_vehicle_dock_assignments = []
-    filename = 'internal_schedule.csv'
-    loaded_schedule = load_and_prepare_schedule(filename, unloading_orders, "queue")
+
     for order in unloading_orders:
         order_info = {}
         order_id = str(order.id)
@@ -175,54 +167,16 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         first_load = calculate_total_quantity(cargo_stack, first_warehouse_id)
         order_info["warehouse_id"] = first_warehouse_id
         first_warehouse = next((w for w in warehouses if w.id == first_warehouse_id), None)
-        """
-        如果一个月台上有不符合要求的车厢且该车厢处于空闲状态（c.state == 0），这个月台就不会被包括在兼容月台列表中。
-        """
         compatible_docks = [dock for dock in first_warehouse.docks if
-                            (dock.dock_type in [1, 3]) and required_carriage in dock.compatible_carriage and
-                            all(c.type == required_carriage or c.state != 0 for c in carriages if
-                                c.current_dock_id == dock.id)]  # 月台类型1代表装货，3代表通用
-        # 在选择月台之前，提取每个月台的最早可用时间
-        dock_available_times = {}
-        for dock in compatible_docks:
-            dock_schedule = loaded_schedule[loaded_schedule['Dock ID'] == dock.id]
-
-            if dock_schedule.empty:
-                available_time = datetime.now()  # 如果没有安排，则认为是立即可用
-            else:
-                # 获取最晚的结束时间作为可用时间
-                available_time = dock_schedule['End Time'].max()
-
-            dock_available_times[dock.id] = available_time
-
-        """
-        1 存在符合条件的空闲车厢的月台会被优先考虑。
-        2 按照月台的出站效率进行排序。效率越高，月台越优先被选择。
-        3 随机选择
-        """
-        compatible_docks.sort(key=lambda dock: (
-            -any(c.current_dock_id == dock.id and c.type == required_carriage and c.state == 0 for c in carriages),
-            dock_available_times[dock.id],
-            -dock.outbound_efficiency,
-            random.random()
-        ))
-
+                            (dock.dock_type == 2 or dock.dock_type == 3) and required_carriage in  # 月台类型2代表装货，3代表通用
+                            dock.compatible_carriage]
+        compatible_docks.sort(key=lambda x: (-x.outbound_efficiency, random.random()))
         if compatible_docks:
             assigned_dock = compatible_docks[0]
             assigned_dock_id = assigned_dock.id
             order_info["dock_id"] = assigned_dock_id
             lay_time = first_load / assigned_dock.efficiency  # TODO 加权
             order_info["lay_time"] = lay_time
-            start_time = datetime.now()
-            end_time = start_time + timedelta(minutes=lay_time)
-
-            # 构建 start_times 和 end_times
-            start_times = {(order_info["order_id"], order_info["warehouse_id"], order_info["dock_id"]): start_time}
-            end_times = {(order_info["order_id"], order_info["warehouse_id"], order_info["dock_id"]): end_time}
-
-            schedule = generate_schedule(start_times, end_times, "drop")
-            save_schedule_to_file(schedule, filename)
-
             # 判断月台是否已有符合条件的车厢
             matching_carriage = next((c for c in carriages if c.current_dock_id == assigned_dock_id
                                       and c.type == required_carriage
@@ -261,12 +215,11 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
 
 def set_dock_efficiency(warehouses):
     for warehouse in warehouses:
-        # 卸货月台
-        unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
+        unloading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
         for dock in unloading_docks:
-            dock.set_efficiency(1)  # order_type=1
+            dock.set_efficiency(1)
 
-        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [1, 3]]
+        loading_docks = [dock for dock in warehouse.docks if dock.dock_type in [2, 3]]
         for dock in loading_docks:
             dock.set_efficiency(2)
 
