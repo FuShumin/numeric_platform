@@ -23,7 +23,7 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
-version_info = '【version: v2.5】'
+version_info = '【version: v2.6】'
 
 
 # 外部订单排队叫号算法
@@ -34,7 +34,7 @@ def external_orders_queueing():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
-    logger.info(f"Received [external] request with data: {json.dumps(data)}")  # 记录入参
+    logger.info(f"version: {version_info} Received [external] request with data: {json.dumps(data)}")  # 记录入参
     # 解析仓库数据
     warehouses = [Warehouse(w['warehouse_id'], [Dock(**d) for d in w['docks']]) for w in data['warehouses']]
 
@@ -178,7 +178,7 @@ def internal_orders_queueing():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
-    logger.info(f"Received [internal] request with data: {json.dumps(data)}")  # 记录入参
+    logger.info(f"version: {version_info} Received [internal] request with data: {json.dumps(data)}")  # 记录入参
     # 解析仓库数据
     warehouses, orders, vehicles, carriages = parse_internal_data(data)
 
@@ -224,7 +224,7 @@ def drop_pull_scheduling():
     """
     print(version_info, flush=True)
     data = request.json  # 获取 JSON 格式的数据
-    logger.info(f"Received [dropPull] request with data: {json.dumps(data)}")  # 记录入参
+    logger.info(f"version: {version_info} Received [dropPull] request with data: {json.dumps(data)}")  # 记录入参
     filename = "DropPull_schedule.csv"
 
     try:

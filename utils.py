@@ -127,7 +127,14 @@ def find_closest_vehicle(carriage_location, vehicles):
     def calculate_vehicle_score(vehicle, carriage_location, average_workload):
         distance = haversine_distance(vehicle.location['latitude'], vehicle.location['longitude'],
                                       carriage_location['latitude'], carriage_location['longitude'])
-        workload_factor = 1 + (vehicle.workload - average_workload) / average_workload
+        # 防止除以零的错误
+        if average_workload == 0:
+            workload_factor = 1  # 如果平均工作量为0，设置默认工作量因子为1
+        else:
+            workload_factor = 1 + (vehicle.workload - average_workload) / average_workload
+
+        # 额外检查，确保工作量因子是合理的
+        workload_factor = max(workload_factor, 0)
         return distance + workload_factor
 
     # 选择工作负载和距离的综合最优车辆
