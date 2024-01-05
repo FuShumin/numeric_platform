@@ -114,13 +114,24 @@ def find_closest_vehicle(carriage_location, vehicles):
     if not available_vehicles:
         return None
 
+    def calculate_average_workload(vehicles):
+        if not vehicles:
+            return 0  # 如果列表为空，返回 0
+
+        total_workload = sum(vehicle.workload for vehicle in vehicles)
+        return total_workload / len(vehicles)
+
+    average_workload = calculate_average_workload(vehicles)
+
+    # 计算每辆车的得分
+    def calculate_vehicle_score(vehicle, carriage_location, average_workload):
+        distance = haversine_distance(vehicle.location['latitude'], vehicle.location['longitude'],
+                                      carriage_location['latitude'], carriage_location['longitude'])
+        workload_factor = 1 + (vehicle.workload - average_workload) / average_workload
+        return distance + workload_factor
+
     # 选择工作负载和距离的综合最优车辆
-    return min(
-        available_vehicles,
-        key=lambda v: haversine_distance(v.location['latitude'], v.location['longitude'],
-                                         carriage_location['latitude'],
-                                         carriage_location['longitude']) + v.workload / 100  # TODO 工作量的加权计算
-    )
+    return min(available_vehicles, key=lambda v: calculate_vehicle_score(v, carriage_location, average_workload))
 
 
 def assign_carriages_to_orders(parsed_internal_result, carriages, warehouses, vehicles, orders):
