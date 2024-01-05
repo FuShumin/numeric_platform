@@ -128,7 +128,7 @@ def external_orders_queueing():
     print("Objective =", value(unloading_model.objective))
     print("=" * 10)
     # TODO when problem is infeasible，raise error/logs
-    var_dicts = unloading_model.variablesDict()
+    # var_dicts = unloading_model.variablesDict()
     unloading_order_dock_assignments, unloading_latest_completion_time = parse_optimization_result(unloading_model,
                                                                                                    unloading_orders,
                                                                                                    unloading_warehouses)

@@ -188,7 +188,7 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
             dock_schedule = loaded_schedule[loaded_schedule['Dock ID'] == dock.id]
 
             if dock_schedule.empty:
-                available_time = datetime.now()  # 如果没有安排，则认为是立即可用
+                available_time = float(0)  # 如果没有安排，则认为是立即可用
             else:
                 # 获取最晚的结束时间作为可用时间
                 available_time = dock_schedule['End Time'].max()

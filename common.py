@@ -223,8 +223,6 @@ def load_and_prepare_schedule(filename, orders, drop_or_queue):
         # 获取当前时间的时间戳
         current_timestamp = datetime.now().timestamp()
 
-
-
         # 将 'End Time' 转换为时间戳并剔除过去的时间段
         loaded_schedule['End Time'] = loaded_schedule['End Time'].apply(convert_str_to_timestamp)
         if drop_or_queue == "queue":
