@@ -62,17 +62,13 @@ def generate_specific_order_route(orders):
 
     for order in orders:
         if order.sequential:
+            # 根据sequence对warehouse_loads排序，忽略sequence为None的情况
+            sorted_loads = sorted(order.warehouse_loads, key=lambda load: (load.sequence is not None, load.sequence))
             # 获取订单中仓库负载的仓库ID，并按照出现的顺序创建路径
-            route = [load['warehouse_id'] for load in order.warehouse_loads]
+            route = [load['warehouse_id'] for load in sorted_loads]
             specific_order_route[order.id] = route
 
     return specific_order_route
-
-    # 仓库是否按序 【测试】
-    # 月台排队顺序 - 2阶段
-    #  解析提取仓库顺序，月台排队顺序
-    # 运单优先级约束 - 2阶段
-    #  生成方案之前，已经有月台正在排队的情况，增量调度更新
 
 
 def create_queue_model(orders, warehouses, order_dock_assignments, specific_order_route, busy_windows=None):

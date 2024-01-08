@@ -69,7 +69,8 @@ class WarehouseLoad:
         self.sequence = sequence
 
     def __repr__(self):
-        return f"WarehouseLoad({self.warehouse_id}, '{self.cargo_type}', {self.quantity}, '{self.operation}')"
+        return (f"WarehouseLoad({self.warehouse_id}, '{self.cargo_type}', {self.quantity}, '{self.operation}',"
+                f" {self.sequence})")
 
 
 class Warehouse:

@@ -269,8 +269,15 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
     highest_efficiency = 0
     selected_dock_id = None
     required_carriage = order_info['order'].required_carriage  # 获取订单所需的车型
+    order_type = order_info['order'].order_type
+    # order_type：入库 对应 卸货， 出库 对应 装货。
+    allowed_dock_types = [2, 3] if order_type == 1 else [1, 3] if order_type == 2 else []
 
     for dock in order_info["warehouse"].docks:
+        # 检查dock类型是否符合要求
+        if dock.dock_type not in allowed_dock_types:
+            continue
+
         # 检查月台是否兼容订单所需的车型
         if required_carriage not in dock.compatible_carriage:
             continue  # 如果不兼容，则跳过此月台
@@ -340,34 +347,3 @@ def generate_schedule_from_orders(parsed_orders):
 
     schedule_df = generate_schedule(start_times, end_times, "drop")
     return schedule_df
-
-
-# 内部订单装货路线聚合仓库
-
-
-def main():
-    cargo_operations = [
-        WarehouseLoad(1, 'A', 400, 'load'),
-        WarehouseLoad(2, 'B', 200, 'load'),
-        WarehouseLoad(1, 'C', 100, 'load'),
-
-        WarehouseLoad(3, 'A', 400, 'unload'),
-        WarehouseLoad(4, 'B', 200, 'unload'),
-        WarehouseLoad(3, 'C', 100, 'unload'),
-    ]
-    loading_route = generate_loading_route(cargo_operations)
-
-    # 创建装卸货堆栈
-    cargo_stack = []
-    for operation in loading_route:
-        if operation.operation == '1':
-            cargo_stack.append(operation)
-
-    unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
-
-    # 提取并去重仓库ID
-    unique_loading_ids = extract_unique_warehouse_ids(loading_route)
-    unique_unloading_ids = extract_unique_warehouse_ids(unloading_route)
-
-    # 合并装货和卸货路线的仓库ID
-    combined_warehouse_ids = unique_loading_ids + unique_unloading_ids
