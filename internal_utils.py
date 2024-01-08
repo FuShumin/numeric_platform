@@ -160,17 +160,28 @@ def process_unloading_orders(unloading_orders, warehouses, carriages, vehicles):
         order_id = str(order.id)
         order_info["order_id"] = order.id
         required_carriage = order.required_carriage
+        order_sequential = order.sequential
         cargo_operations = parse_cargo_operations(order)
-        loading_route = generate_loading_route(cargo_operations)
 
-        cargo_stack = [operation for operation in loading_route if operation.operation == 1]  # 订单类型 1 代表装货
-        unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
-        # 提取并去重仓库ID
-        unique_loading_ids = extract_unique_warehouse_ids(loading_route)
-        unique_unloading_ids = extract_unique_warehouse_ids(unloading_route)
-        # 合并装货和卸货路线的仓库ID
-        combined_warehouse_ids = unique_loading_ids + unique_unloading_ids
-        order_sequences[order_id] = combined_warehouse_ids
+        if order_sequential:  # 按给定的顺序进行装卸货
+            route = sorted(cargo_operations, key=lambda op: op.sequence)
+            cargo_stack = [operation for operation in route if operation.operation == 1]
+            # combined_warehouse_ids = extract_unique_warehouse_ids(route)
+            combined_warehouse_ids = []
+            for operation in route:
+                combined_warehouse_ids.append(operation.warehouse_id)
+            order_sequences[order_id] = combined_warehouse_ids
+        else:
+            loading_route = generate_loading_route(cargo_operations)
+
+            cargo_stack = [operation for operation in loading_route if operation.operation == 1]  # 订单类型 1 代表装货
+            unloading_route = generate_unloading_route(cargo_operations, cargo_stack)
+            # 提取并去重仓库ID
+            unique_loading_ids = extract_unique_warehouse_ids(loading_route)
+            unique_unloading_ids = extract_unique_warehouse_ids(unloading_route)
+            # 合并装货和卸货路线的仓库ID
+            combined_warehouse_ids = unique_loading_ids + unique_unloading_ids
+            order_sequences[order_id] = combined_warehouse_ids
 
         first_warehouse_id = combined_warehouse_ids[0]
         first_load = calculate_total_quantity(cargo_stack, first_warehouse_id)
