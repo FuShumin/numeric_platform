@@ -26,8 +26,8 @@ def parse_internal_data(request_data):
 
 
 def classify_orders(orders):
-    loading_orders = [order for order in orders if order.order_type == 1]  # 1=内部出库单
-    unloading_orders = [order for order in orders if order.order_type == 2]  # 2=内部入库单
+    loading_orders = [order for order in orders if order.order_type == 1]  # 1=内部入库单
+    unloading_orders = [order for order in orders if order.order_type == 2]  # 2=内部出库单
     return loading_orders, unloading_orders
 
 

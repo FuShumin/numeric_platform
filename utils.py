@@ -268,7 +268,6 @@ def find_earliest_and_efficient_dock(order_info, loaded_schedule):
     earliest_time = float('inf')
     highest_efficiency = 0
     selected_dock_id = None
-    historical_assignments = {}  # 存储月台的历史分配次数
     required_carriage = order_info['order'].required_carriage  # 获取订单所需的车型
 
     for dock in order_info["warehouse"].docks:
