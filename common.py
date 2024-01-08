@@ -61,11 +61,12 @@ class Dock:
 
 
 class WarehouseLoad:
-    def __init__(self, warehouse_id, cargo_type, quantity, operation):
+    def __init__(self, warehouse_id, cargo_type, quantity, operation, sequence=None):
         self.warehouse_id = warehouse_id
         self.cargo_type = cargo_type
         self.quantity = quantity
         self.operation = operation  # 1='load' ；2 = 'unload'
+        self.sequence = sequence
 
     def __repr__(self):
         return f"WarehouseLoad({self.warehouse_id}, '{self.cargo_type}', {self.quantity}, '{self.operation}')"

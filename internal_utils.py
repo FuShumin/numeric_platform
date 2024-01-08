@@ -91,9 +91,10 @@ def parse_cargo_operations(order):
         item_code = load.cargo_type
         quantity = load.quantity
         operation = load.operation
+        sequence = load.sequence
 
         # 创建 WarehouseLoad 对象并添加到列表
-        cargo_operations.append(WarehouseLoad(warehouse_id, item_code, quantity, operation))
+        cargo_operations.append(WarehouseLoad(warehouse_id, item_code, quantity, operation, sequence))
 
     return cargo_operations
 
