@@ -16,10 +16,10 @@ class Order:
                 cargo_type = wl.get('item_code', None)  # 使用 item_code 作为 cargo_type
                 quantity = wl.get('load', None)
                 operation = wl.get('loadUnloadStatus', None)  # 使用 loadUnloadStatus 作为 operation
-
+                sequence = wl.get('sequence', None)  # 如果按序，则使用仓库顺序
                 # 如果字段完整，则创建 WarehouseLoad 对象
                 if all([warehouse_id is not None, quantity is not None, operation is not None]):
-                    self.warehouse_loads.append(WarehouseLoad(warehouse_id, cargo_type, quantity, operation))
+                    self.warehouse_loads.append(WarehouseLoad(warehouse_id, cargo_type, quantity, operation, sequence))
                 else:
                     # 否则，保持原样
                     self.warehouse_loads.append(wl)
